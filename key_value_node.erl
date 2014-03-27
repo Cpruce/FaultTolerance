@@ -17,23 +17,32 @@
 % The main/1 function.
 main(Params) ->
     % try
-        % The first parameter is destination node name
-        %  It is a lowercase ASCII string with no periods or @ signs in it.
-        NodeNum = hd(Params),
-        % 0 or more additional parameters, each of which is the Erlang node
-        % name of a neighbor of the philosopher.
-        NeighborsList = tl(Params),
-        Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end,
-          NeighborsList),
+        % The first parameter is m, the value that determines the number
+        % of storage processes in the system.
+        M = hd(Params),
+	% The second parameter is the name of the node to register. This
+	% should be a lowercase ASCII string with no periods or @ signs.
+	NodeName = hd(hd(Params)),
+        % 0 or 1 additional parameters. If not nil, then the extra 
+	% parameter is the registered name of anoter node.
+	[Neighbor] = tl(Params),
+	% get the global set of registered processes from neighbor.
+	Neighbors = get_global_processes(NodeName, [list_to_atom(Neighbor)]),
         %% IMPORTANT: Start the empd daemon!
         os:cmd("epmd -daemon"),
         % format microseconds of timestamp to get an
         % effectively-unique node name
         net_kernel:start([list_to_atom(NodeName), shortnames]),
-        register(philosopher, self()),
+        register(NodeName, self()),
         % begin storage service 
         node_enter(M, Neighbors, dict:new()),
     halt().
+
+%% get global list of registered processes 
+%% from the one other known neighbor.
+get_global_processes(NodeName, []) -> [NodeName];
+get_global_processes(NodeName, Neighbor)->
+% use net_kernel:connect_node/1 and registered_names/0															   
 
 %% initiate rebalancing and update all nodes
 %% when this node enters.
