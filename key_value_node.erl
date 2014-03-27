@@ -26,32 +26,56 @@ main(Params) ->
         % 0 or 1 additional parameters. If not nil, then the extra 
 	% parameter is the registered name of anoter node.
 	[Neighbor] = tl(Params),
-	% get the global set of registered processes from neighbor.
-	Neighbors = get_global_processes(NodeName, [list_to_atom(Neighbor)]),
-        %% IMPORTANT: Start the empd daemon!
+	% IMPORTANT: Start the empd daemon!
         os:cmd("epmd -daemon"),
         % format microseconds of timestamp to get an
         % effectively-unique node name
         net_kernel:start([list_to_atom(NodeName), shortnames]),
         register(NodeName, self()),
         % begin storage service 
-        node_enter(M, Neighbors, dict:new()),
+        node_enter(M, [Neighbor], dict:new()),
     halt().
 
-%% get global list of registered processes 
-%% from the one other known neighbor.
-get_global_processes(NodeName, []) -> [NodeName];
-get_global_processes(NodeName, Neighbor)->
-% use net_kernel:connect_node/1 and registered_names/0															   
+%% get and update global list of registered processes 
+%% from the one other known neighbor, connect, and
+%% assign unique node number.
+global_processes_update(_M, []) -> {0, []};
+global_processes_update(M, [Neighbor])->
+	case net_kernel:connect_node(Neighbor) of 
+		true -> print("Connected to neighbor ~p~n", [Neighbor]), 
+			reg_connect(global:registered_names()),
+			Id = assign_id(M, NodeNumbers),
+			{Id, NodeNumbers};
+		false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
+			{0, []} 
+	end.
+
+%% connects with the rest of the registered names, returns list of node numbes
+reg_connect([], NodeNumbers) -> NodeNumbers;
+reg_connect(Names, NodeNumbers) ->
+	case net_kernel:connect_node(hd(Names)) of 
+		true ->  print("Connected to neighbor ~p~n", [hd(Names)]), 
+			 reg_connect(tl(Names)),
+			 %% ask for node number;
+	        false -> print("Could not connect to neighbor ~p~n", [hd(Names)]),
+			 reg_connect(tl(Names))
+	end.	  
 
 %% initiate rebalancing and update all nodes
 %% when this node enters.
-node_enter(M, Neighbors, Storage)-> storage_serve(M, Neighbors, Storage).
+node_enter(M, [Neighbor], Storage)-> 
+	% connect with nodes, assign id, get nodenum list, and update global list.
+	{Id, NodeNums} = global_processes_update(M, [list_to_atom(Neighbor)]),
+	% get the global set of registered processes from neighbor.
+	NeighborsName = global:registered_names(),
+	% start storage service!
+        storage_serve(M, Id, Neighbors, Storage).
 
 
 %% primary storage service function; handles
 %% general communication and functionality.
-storage_serve(M, Neighbors, Storage)-> ;
+storage_serve(M, Id, Neighbors, Storage)-> 
+	ok.
 
 
 %% hash function to uniformly distribute among 
@@ -60,18 +84,18 @@ hash(z, n) when n > 0 -> z rem n;
 hash(_, _) -> -1. 	%% error if no storage
 			%% processes are open.
 
-%check_neighbors([], _)-> ok;
-%check_neighbors([X|XS], ParentPid) ->
-%    spawn(fun() ->  monitor_neighbor(X, ParentPid) end),
-%    check_neighbors(XS, ParentPid).
-%monitor_neighbor(Philosopher, ParentPid) ->
-%    erlang:monitor(process,{philosopher, Philosopher}), %{RegName, Node}
-%       receive
-%        {'DOWN', _Ref, process, _Pid,  normal}  ->
-%            ParentPid ! {self(), check, Philosopher};
-%        {'DOWN', _Ref, process, _Pid,  _Reason} ->
-%            ParentPid ! {self(), missing, Philosopher}
-%       end.
+check_neighbors([], _)-> ok;
+check_neighbors([X|XS], ParentPid) ->
+    spawn(fun() ->  monitor_neighbor(X, ParentPid) end),
+    check_neighbors(XS, ParentPid).
+monitor_neighbor(Neighbor, ParentPid) ->
+    erlang:monitor(process,{neighbor, Neighbor}), %{RegName, Node}
+       receive
+        {'DOWN', _Ref, process, _Pid,  normal}  ->
+            ParentPid ! {self(), check, Neighbor};
+        {'DOWN', _Ref, process, _Pid,  _Reason} ->
+            ParentPid ! {self(), missing, Neighbor}
+       end.
 
 
 % Helper functions for timestamp handling.
