@@ -19,7 +19,7 @@ main(Params) ->
     % try
         % The first parameter is destination node name
         %  It is a lowercase ASCII string with no periods or @ signs in it.
-        NodeName = hd(Params),
+        NodeNum = hd(Params),
         % 0 or more additional parameters, each of which is the Erlang node
         % name of a neighbor of the philosopher.
         NeighborsList = tl(Params),
@@ -31,9 +31,19 @@ main(Params) ->
         % effectively-unique node name
         net_kernel:start([list_to_atom(NodeName), shortnames]),
         register(philosopher, self()),
-        %joining
-        philosophize(joining, Neighbors, dict:new()),
+        % begin storage service 
+        node_enter(M, Neighbors, dict:new()),
     halt().
+
+%% initiate rebalancing and update all nodes
+%% when this node enters.
+node_enter(M, Neighbors, Storage)-> storage_serve(M, Neighbors, Storage).
+
+
+%% primary storage service function; handles
+%% general communication and functionality.
+storage_serve(M, Neighbors, Storage)-> ;
+
 
 %% hash function to uniformly distribute among 
 %% storage processes.
