@@ -2,7 +2,7 @@
 %% Harvey Mudd College
 %% Fault tolerant key-value store distributed system
 %% @author Cory Pruce, Tum Chaturapruek
-%% @doc The show must go on!
+%% @doc _D157R18U73_
 -module(key_value_node).
 %% ====================================================================
 %%                             Public API
@@ -43,20 +43,21 @@ global_processes_update(_M, []) -> {0, []};
 global_processes_update(M, [Neighbor])->
 	case net_kernel:connect_node(Neighbor) of 
 		true -> print("Connected to neighbor ~p~n", [Neighbor]), 
-			reg_connect(global:registered_names()),
-			Id = assign_id(M, NodeNumbers),
-			{Id, NodeNumbers};
+			Neighbors = reg_connect(global:registered_names(), []),
+			Id = assign_id(M, Neighbors),
+			{Id, Neighbors};
 		false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
 			{0, []} 
 	end.
 
 %% connects with the rest of the registered names, returns list of node numbes
-reg_connect([], NodeNumbers) -> NodeNumbers;
-reg_connect(Names, NodeNumbers) ->
+reg_connect([], Neighbors) -> 
+	;
+reg_connect(Names, Neighbors) ->
 	case net_kernel:connect_node(hd(Names)) of 
-		true ->  print("Connected to neighbor ~p~n", [hd(Names)]), 
-			 reg_connect(tl(Names)),
-			 %% ask for node number;
+		true ->  print("Connected to neighbor ~p~n", [hd(Names)]),
+			 % build Neighbors list of {Name, Id}
+			 reg_connect(tl(Names), Neighbors ++ request_id(hd(Names))); 
 	        false -> print("Could not connect to neighbor ~p~n", [hd(Names)]),
 			 reg_connect(tl(Names))
 	end.	  
@@ -65,17 +66,38 @@ reg_connect(Names, NodeNumbers) ->
 %% when this node enters.
 node_enter(M, [Neighbor], Storage)-> 
 	% connect with nodes, assign id, get nodenum list, and update global list.
-	{Id, NodeNums} = global_processes_update(M, [list_to_atom(Neighbor)]),
+	{Id, Neighbors} = global_processes_update(M, [list_to_atom(Neighbor)]),
+	
 	% get the global set of registered processes from neighbor.
-	NeighborsName = global:registered_names(),
+	%NeighborsNames = global:registered_names(),
+	
+	% can only talk to neighbors with ids i + 2^k mod 2^m for 0 <= k < m
+	% Neighbors = filter_neighbors(Neigbors
+	
 	% start storage service!
-        storage_serve(M, Id, Neighbors, Storage).
+        storage_serve(M, Id, Neighbors, NodeNums, Storage).
 
+%% put together list of {Neighbor, NeighborId} 
+assemble_neighbors([], Neighbors) -> Neighbors;
+assemble_neighbors(NeighborsNames, Neighbors)->
+	Rcvr = hd(NeighborsNames),
+	
 
 %% primary storage service function; handles
 %% general communication and functionality.
-storage_serve(M, Id, Neighbors, Storage)-> 
-	ok.
+storage_serve(M, Id, Neighbors, NodeNums, Storage)-> 
+	recieve 
+		{Pid, Ref, store, Key, Value} -> ok;
+		{Ref, stored, Oldval} -> ok;
+		{Pid, Ref, retrieve, Key} -> ok;
+		{Ref, retrieved, Value} -> ok;
+		{Pid, Ref, first_key} -> ok;
+		{Pid, Ref, last_key} -> ok;
+		{Pid , Ref, num_keys} -> ok;
+		{Pid, Ref, node_list} -> ok;
+		{Ref, result, Result} -> ok;
+		{Ref, failure} -> ok
+	end.
 
 
 %% hash function to uniformly distribute among 
