@@ -76,76 +76,99 @@ escapeinside={\%*}{*)} % if you want to add a comment within your code
 
 \section{The Distributed Key-Value Storage}
 \begin{problem}{Statement}
-We need to develop and implement a protocol that allows nodes to join or leave a running dining philosophers network at runtime in an orderly fashion while maintaining an acyclic priority graph, ensuring safety, and preventing deadlock.
+We need to develop and implement an algorithm for the distributed key-value storage system, which involves distributed computations such as snapshot algorithms when the external world asks a question about the entire system. The system must be fault tolerant, correct, highly available, and reasonably fast.
 \end{problem}
 
-Our solution is based on a hygienic solution discussed in class. To avoid deadlocks, we maintain a priority graphs, in which the person with a higher priority gets to eat first when two of adjacent philosophers are hungry. We use a fork mechanism to represent the priority graph in a distributed fashion. There is exactly one fork per each edge between two nodes, where nodes represent philosophers. Each fork can be either \texttt{DIRTY} or \texttt{CLEAN}. A \texttt{CLEAN} fork implies that the person holding it has a higher priority than the person at the other end of an edge. Conversely, a \texttt{DIRTY} fork implies that the person holding it has a lower priority. In this assignment, we extend this algorithm to allow philosophers to join and leave the table, while still maintain the acyclic priority graph, ensuring safety, and preventing deadlock.
+Our snapshot algorithm is based on the Chandy-Lamport algorithm.
 
 
 \section{The Algorithm}
 \subsection{A set of states}
 Each of the philosophers must be in one of the following 6 states:
+\newcommand{\numStates}{six}
+\newcommand{\joining}{\textit{joining}}
+\newcommand{\available}{\textit{available}}
+\newcommand{\leaving}{\textit{leaving}}
+\newcommand{\gone}{\textit{gone}}
+\newcommand{\red}{\textit{red}}
+\newcommand{\white}{\textit{white}}
 \begin{enumerate}
-\item \textit{joining}
-\item \textit{thinking}
-\item \textit{hungry}
-\item \textit{eating}
-\item \textit{leaving}
-\item \textit{gone}
+\item \joining
+\item \available
+\item \leaving
+\item \gone
+\item \red
+\item \white
 \end{enumerate}
 
 
 \subsection{Information Stored by Each Process}
-In the Erlang syntax, the $\texttt{philosophize}$ function's header represents
+In the Erlang syntax, the $\texttt{TODO}$ function's header represents
 the information stored by each process:
 \begin{lstlisting}
-philosophize(<state>, Node, Neighbors, ForksList)
+TODO(<state>, Node, Neighbors)
 \end{lstlisting}
 In other words, a process $p$ contains the following information:
 \begin{enumerate}
-\item $p.state$ ($\langle\texttt{state}\rangle$): one of the six states outlined above.
+\item $p.m$ ($m$): the parameter $m$.
+\item $p.state$ ($\langle\texttt{state}\rangle$): one of the \numStates states outlined above.
 \item $p.node$ its process node ($\texttt{Node}$), represented as a lowercase ASCII string with a machine name, separated by an @ symbol. (For example, \texttt{p1@ash}) We can always find out our nodename with node(), so it is not passed around.
 \item $p.neighbors$ ($\texttt{Neighbors}$): a list of its neighboring processes $[n_1, n_2, \ldots, n_k]$.
-\item $p.fork\_states$ ($\texttt{ForkList}$): a list $[f_{p, n_1}, f_{p, n_2}, f_{p, n_3}, \ldots, f_{p, n_k}]$ of fork states for each its neighbors, in the same order as the neighboring list. The fork is a 2-tuple $\{holding, hygiene\}$, where \emph{holding} can be either 0 or 1, where 1 means the fork belongs to $p$, where as 0 means the fork belongs to its corresponding neighbor. The second element in the tuple is \emph{holding}, which can be either \texttt{CLEAN}, \texttt{DIRTY}, or \texttt{SPAGHETTI} to establish the priority. A \texttt{CLEAN} fork implies that
-
-the person holding it has a higher priority than the person at the other end of an edge. Conversely, a \texttt{DIRTY} fork implies that the person holding it has a lower priority. The value \texttt{SPAGHETTI} (or sometimes \texttt{SPAGHETTI SAUCE}) or something else indicates a placeholder. For example, if \emph{holding} is 0 (not holding fork), \emph{hygiene} is not meaningful anymore. That is, \emph{hygiene} has a meaning only when the philosopher is holding a fork.
-
-The corresponding global priority graph can be defined as follows. The nodes of the graph is the processes in the system graph, and there is a directed edge $(p, q)$ from $p$ to $q$ if and only if $p$ is a neighbor of $q$ in the system graph and $p$ has a higher priority than $q$.
-
-For example, if $p.neighbors = [n_1, n_2, n_3]$ and $p.fork\_states = [\{0, \_\}, \{1, \texttt{CLEAN}\}, \{0, \_\}],$ then the fork $f_{p, n_1}$ belongs to $p$; $f_{p, n_2}$ belongs to $n_2$; and $f_{p, n_3}$ belongs to $n_3$. This means $p$ has a higher priority than $n_2$ but lower than $n_1$ and $n_3$.
 \end{enumerate}
 
 \subsection{Message Types in the System}
 We categorize messages by its sender and its receiver:
-\subsubsection{From Philosophers to Philosophers}
+\subsubsection{From Storage Processes to Storage Processes}
 \begin{enumerate}[M1]
-\item \label{M:fork} a fork: exactly one fork per one pair of neighboring processes. A fork can be \texttt{DIRTY} (the process holding it has lower priority) or \texttt{CLEAN} (the process holding it has higher priority).
-\item \label{M:fork_request} a fork request. The sending philosopher should only send this when it is in the $hungry$ state and it does not hold a fork.
-\item \label{M:joining_request} a joining request. The sending philosopher, who should be in the \textit{joining} state, once assigned by the external controller who to join, sends a joining request to each of its intended neighbors. When the receiving philosopher receives this message, it adds the sender to its neighbors list.
-\item \label{M:joining_ack} a joining message acknowledgement. Once a joining philosopher receives an acknowledgement from a neighbor that it sent a joining request to, it knows that the sending philosopher are aware of its joining. Once it knows that all intended neighbors are aware of its joining, it can transition to the \emph{thinking} state.
-\item \label{M:leaving_notification} a leaving notification. The sending philosopher, who should be in either the \textit{thinking}, \textit{hungry}, or \textit{eating} state, once signaled by an external controller to leave, it transitions to the leaving state and sends a leaving notification to all its neighbors.
-\item \label{M:leaving_ack} a leaving message acknowledgement. A philosopher, once received a leaving notification message, deletes the sender from its neighbors list, and immediately sends a leaving message acknowledgement to the sender.
+\item \label{M:fork} Lots of messages going on here.
 \end{enumerate}
 
-\subsubsection{From External Controllers to Philosophers}
+\subsubsection{From Storage Processes to Non-Storage Processes}
 \begin{enumerate}[M1]
 \setcounter{enumi}{6}
-\item \label{M:become_hungry} a \texttt{become\_hungry} message. The philosopher should only receive this message while \textit{thinking}; when it does, it transitions to \textit{hungry}.
-\item \label{M:stop_eating} a \texttt{stop\_eating} message. The philosopher should only receive this message while \textit{eating}; when it does, it transitions to \textit{thinking}. Just before transitioning to thinking, it will immediately handle any previous requests for forks.
-\item \label{M:leave} a \texttt{leave} message. The philosopher can receive this message in any state other than \textit{joining}; when it does, it should ask for acknowledgment from all its neighbors to say that it is leaving, then immediately leaves the network by transitioning to \emph{gone}.
+\item \label{M:become_hungry} something.
 \end{enumerate}
 
-\subsubsection{From Philosophers to External Controllers}
+\subsubsection{From Non-Storage Processes to Storage Processes}
 \begin{enumerate}[M1]
 \setcounter{enumi}{9}
-\item an \texttt{eating} message. The philosopher should send this message, when it becomes \textit{eating}, to the controller that triggered its transition to \textit{hungry} through the \texttt{become\_hungry} message.
-\item a \texttt{gone} message. When it becomes \textit{gone}, the philosopher should send this message to the controller that sent it the \texttt{leave} message that triggered its departure.
+\item an \texttt{store} Something.
+\item an \texttt{stored} Something.
+\item an \texttt{store} Something.
+\item an \texttt{store} Something.
 \end{enumerate}
 
-\subsection{Initial Distributions of Forks}
+\subsubsection{From Non-Storage Processes to Non-Storage Processes}
+\begin{enumerate}[M1]
+\setcounter{enumi}{9}
+\item an \texttt{eating} Something.
+\end{enumerate}
+
+
+\subsubsection{From Processes to External Controllers}
+\begin{enumerate}[M1]
+\setcounter{enumi}{9}
+\item a \texttt{stored} Something.
+\item a \texttt{retrieved} Something.
+\item a \texttt{result} Something.
+\item a \texttt{failure} Something.
+\end{enumerate}
+
+\subsubsection{From External Controllers to Processes}
+\begin{enumerate}[M1]
+\setcounter{enumi}{9}
+\item a \texttt{store} Something.
+\item a \texttt{retrieve} Something.
+\item a \texttt{first\_key} Something.
+\item a \texttt{last\_key} Something.
+\item a \texttt{num\_keys} Something.
+\item a \texttt{node\_list} Something.
+\item a \texttt{leave} Something.
+\end{enumerate}
+
+\subsection{Initial States of the System}
 \begin{enumerate}
-\item All forks are dirty.
-\item Initially, the first philosopher has no fork. When another philosopher requests to be its neighbor, it sends a joining request. The receiving philosopher will create a dirty fork. This prevents cycles since there is a possibility that if the fork was clean, he would never give it up.
+\item TODO
 \end{enumerate}
 
 \subsection{Actions before and after Transitions}
@@ -159,41 +182,15 @@ We will describe what would happen when a philosopher receives a fork.
 
 
 \begin{description}
-\item[(1) $p.joining$ $\to$ $p.thinking$:] sends a joining request to all of its neighbors. Once it receives all joining message acknowledgments from all its neighbors, transitions to the \textit{thinking} state.
+\item[(1) $p.joining$ $\to$ $p.available$:] sends a joining request to all of its neighbors. Once it receives all joining message acknowledgments from all its neighbors, transitions to the \textit{thinking} state.
 
-\item[(2) $p.thinking$ $\to$ $p.hungry$:] check to see if has already received a \texttt{become\_hungry} message from an external controller. If so, stores the identification of the external controller that triggered it to become \emph{hungry}, then transitions to the \textit{hungry} state. Once it becomes \emph{hungry}, it sends a fork request to all neighbors that hold that forks that it needs.
-
-\item[(3) $p.hungry$ $\to$ $p.eating$:] checks to see if it holds all forks. If so, performs the transition and sends an \texttt{eating} message to the external controller that triggered it to become \emph{hungry} and make all forks \texttt{DIRTY}, thereby making its priority lowest among all its neighbors. If not, it waits until it receives another fork and checks if he has them all again, until it actually has them all and transitions to \textit{eating}, then sends an \texttt{eating} message to the external controller that triggered it to become \emph{hungry} and make all forks \texttt{DIRTY}.
-
-\item[(4) $p.eating$ $\to$ $p.thinking$:] checks to see if it has already received a \texttt{stop\_eating} message from an external controller. If so, performs the transition and sends any forks for which it received requests while eating.
-
-\item[(5) $(p.thinking \vee p.hungry \vee p.eating)$ $\to$ $p.leaving$:] checks to see if it has already received a \texttt{leave} message from an external controller. If so, the philosopher transitions to the \textit{leaving} state and sends leaving notifications to all of its neighbors. 
+\item[(5) $(p.leaving \vee p.red \vee p.white)$ $\to$ $p.leaving$:] checks to see if it has already received a \texttt{leave} message from an external controller. If so, the process transitions to the \textit{leaving} state and sends leaving notifications to all of its neighbors. 
 
 \item[(6) $p.leaving$ $\to$ $p.gone$:]
-once it receives leaving notification acknowledgements from all of its neighbors to whom it sent leaving notifications, it transitions to the \textit{gone} state. At this stage, it knows that all of its neighbors are aware of its leaving and already deleted it from their neighbors list. With this knowledge, it then deletes all its neighbors from its neighbors list.
+once it receives leaving notification acknowledgements from all of its neighbors to whom it sent leaving notifications, it transitions to the \gone state. At this stage, it knows that all of its neighbors are aware of its leaving and already deleted it from their neighbors list. With this knowledge, it then deletes all its neighbors from its neighbors list.
 \end{description}
 
-Now we need to define what should happen when a philosopher $p$ receives an incoming message depending on what state it currently is in.
-\subsection{Actions for Incoming Fork Messages (M\ref{M:fork})}
-When a fork message is received, the philosopher marks the fork as clean.
-\begin{description}
-\item[Received in the \textit{joining} state:] not possible.
-\item[Received in the \textit{thinking} state:] not possible.
-\item[Received in the \textit{hungry} state:] the process adds the fork to his list of forks marked as a \texttt{CLEAN} fork. It then checks if it has all the forks it needs to start eating, if not it will continue waiting for forks.
-\item[Received in the \textit{eating} state:] not possible, already had a fork.
-\item[Received in the \textit{leaving} state:] the process will ignore it since it send a message telling that process it's leaving. That process will eventually get the message and acknowledge the leaving process is leaving, removing that fork from the edge.
-\item[Received in the \textit{gone} state:] not possible.
-\end{description}
-\subsection{Actions for Incoming Fork Request Messages (M\ref{M:fork_request})}
-
-\begin{description}
-\item[Received in the \textit{joining} state:] Since all the joining nodes has all dirty forks, it will give the requested forks to the requesting philosopher.
-\item[Received in the \textit{thinking} state:] sends the requested fork to the requesting philosopher.
-\item[Received in the \textit{hungry} state:] checks whether the fork is \texttt{DIRTY} or \texttt{CLEAN}. If the fork is \texttt{DIRTY}, it sends the requested fork to the requesting philosopher, and if it's \texttt{CLEAN}, it holds onto it, and makes a note that the requesting philosopher wanted it.
-\item[Received in the \textit{eating} state:] saves the request until it transitions to the \emph{thinking} state. If the process leaves, the requesting process will get a leaving notification message and knows that that fork is no longer necessary to eat and delete that fork from its list.
-\item[Received in the \textit{leaving} state:] ignores.
-\item[Received in the \textit{gone} state:] not possible.
-\end{description}
+Now we need to define what should happen when a process $p$ receives an incoming message depending on what state it currently is in.
 
 \subsection{Actions for Incoming Joining Request Messages (M\ref{M:joining_request})}
 \begin{description}
@@ -281,7 +278,7 @@ Waits for leaving notification acknowledgements from all of its neighbors.
 
 \subsection{External Controllers}
 \begin{enumerate}[\text{A}1]
-\item \label{A:finite_time_eating} If a philosopher $p$ informs an external controller that it is \emph{eating}, the external controller will direct $p$ to become either \emph{thinking} or \emph{leaving} within a bounded time.
+\item \label{A:finite_time_eating} Only storage processes will receive requests from the outisde world.
 
 \item \label{A:no_invalid_signals} External controllers will not send duplicate or invalid control signals.
 
@@ -291,44 +288,40 @@ Waits for leaving notification acknowledgements from all of its neighbors.
 \subsection{Misc.}
 \begin{enumerate}[\text{A}1]
 \setcounter{enumi}{3}
-\item \label{A:message_never_lost} Messages are never lost; sufficient time is allowed for a philosopher to bootstrap itself before other philosophers send it messages.
+\item \label{A:message_never_lost} Messages are never lost; sufficient time is allowed for a process to bootstrap itself before other processes send it messages.
+\item There is ample time to rebalance when a node leaves or joins.
 \end{enumerate}
 
 
 \section{Proof of Correctness}
 
 
-\subsection{Proof of Acyclic Priority Graph Invariance}
-The prioirity graph changes only in three possible cases.
-\begin{description}
-\item[Case 1: A new process joins the network.] In this case, the new process has the lowest priority. Thus, all its neighbors will have arrow point to it. Thus, if there were a cycle, such cycle could not possibly pass this new process. Since the original graph was acyclic, there could not be cycles elsewhere as well. Thus, the resulting priority graph is still acyclic.
-\item[Case 2: A process leaves the network.] A new priority graph is a subgraph of the original graph, and so the new graph cannot have cycles. If it were to have any cycles, these cycles would have presented in the original graph as well, which is not the case. Thus, the resulting priority network is acyclic.
-\item[Case 3: A process eats.] In this case, based on our hygienic algorithm, such process will then have the lowest priority among all its neighbors. Thus, all the arrow points to it. If there were a cycle, such cycle could not possibly pass this process. Since the original graph was acyclic, there could not be cycles elsewhere as well. Thus, the resulting priority graph is still acyclic.
-\end{description}
-
 \subsection{Proof of Safety Properties}
+Suppose the parameter $m$, which is a nonnegative integer, is given.
 
 \begin{enumerate}[S1]
 \item {\bfseries initially} {\it p.joining}
 
 $p$ is given the state of $joining$ in which the philosopher $p$ is requesting to join the group and cannot possibly gain any other state until granted acceptance.
 
-\item {\it p.joining} {\bfseries next} {\it (p.joining $\vee$ p.thinking)}
 
-This requirement is satisfied because $p$ can be constantly trying to join the party but may be waiting infinitely or it can be granted the state of thinking (which is the only initial state in the party).
+\item $\#(\text{storage processes}) = 2^m.$
 
-\item {\it p.thinking} {\bfseries next} {\it (p.thinking $\vee$ p.hungry $\vee$ p.leaving)}
+\item {\it p.joining} {\bfseries next} {\it (p.joining $\vee$ p.available)}
 
-When thinking, the philosopher $p$ can continue thinking, the external controller can issue the order to become hungry, or the controller may tell the philosopher to leave. No other "state" transitions are available to the philosopher at the $thinking$ state. 
+This requirement is satisfied because $p$ can be constantly trying to join the party but may be waiting infinitely or it can be granted the state of available (which is the only initial state in the party).
+
+\item {\it p.available} {\bfseries next} {\it (p.available $\vee$ p.hungry $\vee$ p.leaving)}
+
+When available, the process $p$ can continue \available, the external controller can issue the order to become hungry, or the controller may tell the process to leave. No other "state" transitions are available to the process at the $available$ state. 
 
 \item {\it p.hungry} {\bfseries next} {\it (p.hungry $\vee$ p.eating $\vee$ p.leaving)}
 
-If a philosopher $p$ is told by the external controller to become \emph{hungry}, then it may be told to leave, it may become \emph{eating} due to its hungry nature, or $p$ may remain \emph{hungry}. 
+If a process $p$ is told by the external controller to become \emph{hungry}, then it may be told to leave, it may become \emph{eating} due to its hungry nature, or $p$ may remain \emph{hungry}. 
 
-\item {\it p.eating} {\bfseries next} {\it (p.eating $\vee$ p.thinking $\vee$ p.leaving)}
+\item {\it p.eating} {\bfseries next} {\it (p.eating $\vee$ p.available $\vee$ p.leaving)}
 
-If a philosopher $p$ is $eating$, then only three cases are possible to the philosopher. First, nothing may happen and the philosopher will continue $eating$. Second, the external controller can tell the philosopher to \texttt{stop\_ eating}, in which $p$ would become $thinking$. Third, the external controller can also tell the philosopher to \texttt{leave}, in which $p$ would become $leaving$. No other transitions are available at this stage.
-
+If a process $p$ is $eating$, then only three cases are possible to the process. First, nothing may happen and the process will continue $eating$. Second, the external controller can tell the process to \texttt{stop\_ eating}, in which $p$ would become $available$. Third, the external controller can also tell the process to \texttt{leave}, in which $p$ would become $leaving$. No other transitions are available at this stage.
 
 \item {\it p.leaving} {\bfseries next} {\it (p.leaving $\vee$ p.gone)}
 
@@ -356,6 +349,36 @@ Before the philosopher $q$ can leave or remove a neighbor $p$ who is either $thi
 
 If $p$ is \emph{gone}, from our algorithm we know that $p.neighbors = \emptyset$. From this fact and from the safety property S\ref{S:mutual_neighbors}, we know that if $q$ is $thinking$, $hungry$, or $eating$, then $p$ cannot be a neighbor $q$. If $q$ is \emph{leaving} or \emph{gone}, $q.neighbors = \emptyset$ so $p\not\in q.neighbors.$ If $q$ is \emph{joining}, $p$ cannot possibly be a neighbor of $q$ due to our Assumption A\ref{A:E_guarantees_nodes_entering_network} that guarantees joining philosophers to be able to enter the network. Hence, we have covered all cases.
 
+
+
+\item When a storage process $p$ receives a store/retrieve message with key $k$, if $k = p.id$, then it performs an action. If not, then it forwards the request to an apppropriate process.
+
+\item $1 \leq n:= \#nodes \leq 2^m.$
+
+\item $node_1.id \neq node_2.id$ if $node_1 \neq node_2.$
+
+\item $node_i.id \in \{0,1,2,\ldots, 2^m - 1\}$ for all $0\leq i \leq n - 1.$ 
+
+\item Without loss of generality, we can let
+$0 \leq node_1.id < node_2.id < \cdots < node_n.id \leq 2^m - 1.$
+Then for $i= 0, 1, \ldots, n - 1,$ $node_i$ hosts storage processes with id in the set $\{node_i.id, node_i.id + 1, node_i.id + 2, \ldots, node_{i+1}.id - 1\}$ in modulo $2^m$ calculation and with the notation $node_{n} = node_0.$
+
+\item All storage processes are named in the global Erlang name registry.
+
+\item Each node must register at least one non-storage process (so that the node is always discoverable).
+
+
+\item If $\#node = n < 2^m$, then a new node can always join the system.
+
+\item A storage process can communicate another storage process only if they are neighbors.
+
+\item  A storage process can communicate a non-storage process only if they are in the same node.
+
+\item A non-storage process can communicate a storage process only if they are in the same node.
+
+\item  A non-storage process in node $i$ can communicate a non-storage process only if it is in the nodes that host neighbors of the storage processes hosted by node $i$.
+
+\item Every message from the outside world (except for \texttt{leave}) must be responded to except for when relevant processes crash.
 \end{enumerate}
 
 
@@ -363,374 +386,23 @@ If $p$ is \emph{gone}, from our algorithm we know that $p.neighbors = \emptyset$
 \section{Proof of Progress Properties}
 \begin{enumerate}[PG1]
 \item
-$p.joining$ $\leadsto^*$ $p.thinking$ ($^*$ if its neighbors remain in the network long enough) 
+$p.joining$ $\leadsto^*$ $p.available$ ($^*$ if its neighbors remain in the network long enough) 
 
-\indent After philosopher $p$ has started up, it has given itself the $joining$ state. Assuming that the neighbors in which $p$ knows about are running correctly and the network runs as expected and Assumption A\ref{A:E_guarantees_nodes_entering_network}, all other philosophers are bound to hear $p$'s request to join eventually and thus $p$ is guaranteed to be given the state $thinking$.
-
-\item  $p.hungry$ $\leadsto$ $p.eating$
-
-\indent When $hungry$, a philosopher $p$ sends fork requests to all its neighbors from which it needs forks. Due to our Assumption A\ref{A:finite_time_eating}, we know that an \emph{eating} philosopher will take a finite time. When a neighboring \emph{eating} philosopher finished eating, it processes the fork request from $p$. Because our algorithm makes just-finished-eating processes have the lowest priority among their neighbors (in particular, $p$) by making the fork \texttt{DIRTY}, they cannot hold on to that fork and must pass the fork to $p$. Thus, eventually $p$ will have all the forks it needs, so it can eventually becomes \emph{eating}.
-
+\indent After philosopher $p$ has started up, it has given itself the $joining$ state. Assuming that the neighbors in which $p$ knows about are running correctly and the network runs as expected and Assumption A\ref{A:E_guarantees_nodes_entering_network}, all other philosophers are bound to hear $p$'s request to join eventually and thus $p$ is guaranteed to be given the state $available$.
 
 \item 
 $p.leaving$ $\leadsto$ $p.gone$
 When $p$ is in the \emph{leaving} state, it sends leaving notifications to all its neighbors. Since messages are never lost, all of its neigbors will eventually get the messages and send acknowledgements back. Once it receives all acknowledgements, it can transition to \emph{gone}.
+
+\item 
+$p.gone$ $\leadsto$ (all other nodes detect and rebalance)
 
 \end{enumerate}
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 \section{Appendix: Relevant Code}
 \begin{lstlisting}
-%% CSCI182E - Distributed Systems
-%% Harvey Mudd College
-%% Dynamic Dining Philosophers
-%% @author Tum Chaturapruek, Patrick Lu, Cory Pruce
-%% @doc Think, hungry, and eat.
--module(philosopher).
-
-%% ====================================================================
-%%                             Public API
-%% ====================================================================
--export([main/1]).
-
-%% ====================================================================
-%%                             Constants
-%% ====================================================================
-
-%% ====================================================================
-%%                            Main Function
-%% ====================================================================
-% The main/1 function.
-main(Params) ->
-    % try 
-        % The first parameter is destination node name
-        %  It is a lowercase ASCII string with no periods or @ signs in it.
-        NodeName = hd(Params),
-
-        % 0 or more additional parameters, each of which is the Erlang node
-        % name of a neighbor of the philosopher.
-        NeighborsList = tl(Params),
-        Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, 
-          NeighborsList), 
-        %% IMPORTANT: Start the empd daemon!
-        os:cmd("epmd -daemon"),
-
-        % format microseconds of timestamp to get an 
-        % effectively-unique node name
-        net_kernel:start([list_to_atom(NodeName), shortnames]),
-
-        register(philosopher, self()),
-
-        %joining
-        philosophize(joining, Neighbors, dict:new()),
-
-    halt().
-
-
-% This is a helper function to that sends forks to all
-% processes in a list.
-sendForks([], ForksList) -> ForksList;
-sendForks(Requests, ForksList) ->
-    print("Sending the fork to ~p~n", [hd(Requests)]),
-    ForkList = dict:erase(hd(Requests), ForksList),
-    NewForkList = dict:append(hd(Requests), {0, "SPAGHETTI"}, ForkList),
-    {philosopher, hd(Requests)} ! {node(), fork},
-    sendForks(tl(Requests), NewForkList).
-
-% Check to see if a process has all the forks
-% it needs to eat
-haveAllForks([],_) -> true;
-haveAllForks(Neighbors, ForksList) ->
-        case (dict:find(hd(Neighbors), ForksList)) of
-            %Request the fork
-            {ok, [{0,_}]} -> print("Don't have all forks~n"),
-                          false;
-            {ok, [{1,_}]} -> haveAllForks(tl(Neighbors), ForksList)
-        end.
-
-% Constantly query neighbor philosophers to make sure that they are still
-% there. If one is gone, delete fork to that philosopher and remove from 
-% neighbors list, sufficiently removing the edge. Otherwise, keep
-% philosophizing. 
-
-check_neighbors([], _)-> ok;
-check_neighbors([X|XS], ParentPid) ->
-    spawn(fun() ->  monitor_neighbor(X, ParentPid) end),
-    check_neighbors(XS, ParentPid).
-
-monitor_neighbor(Philosopher, ParentPid) ->
-    erlang:monitor(process,{philosopher, Philosopher}), %{RegName, Node}
-       receive
-        {'DOWN', _Ref, process, _Pid,  normal}  ->
-            ParentPid ! {self(), check, Philosopher};
-        {'DOWN', _Ref, process, _Pid,  _Reason} ->
-            ParentPid ! {self(), missing, Philosopher}
-       end.
-
-%requests each neighbor to join the network, one at a time,
-%when joining there shouldn't be any other requests for forks or leaving going on
-%If another process requests to join during the joining phase, hold onto it until
-%successfully joined and then handle it using the erlang mailbox.
-requestJoin([], ForksList)-> ForksList;
-requestJoin(Neighbors, ForksList)->
-        print("Process ~p at node ~p sending request to ~s~n", 
-            [self(), node(), hd(Neighbors)]),
-        {philosopher, hd(Neighbors)} ! {node(), requestJoin},
-        receive
-            {Node, ok} -> 
-                print("!Got reply (from ~p): ok!~n", [Node]),
-                ForkList = dict:append(Node, {0, "SPAGHETTI SAUCE"}, ForksList),
-                requestJoin(tl(Neighbors), ForkList)
-        end.
-
-%% im pretty sure that the message passing should be the other way around since 
-%%we are only writing the philosophers' code and not the external controller's. 
-%%Was the infinite_loop intended to be a test controller? Also, should we keep using NewRef or just use NewRef for eating?
-requestForks([],_) -> print("No more neighbors to request ~n");
-requestForks(Neighbors, ForksList)->
-        %See if we have the fork from this edge
-        case (dict:find(hd(Neighbors), ForksList)) of
-            %Request the fork if 0
-            {ok,[{0,_}]} -> print("Requesting fork~n"),
-                          {philosopher, hd(Neighbors)} ! {node(), requestFork};
-            {ok,[{1,_}]} -> ok
-        end,
-        requestForks(tl(Neighbors), ForksList).
-
-% This is the joining state, initially the process will try to join
-% by getting acknowledgement from all its neighors. Only when it has
-% acknowledgement can it transition to thinking
-philosophize(joining, Neighbors, ForkList)->
-  print("Joining~n"),
-  %philosophize(Ref, thinking, Neighbors);
-    ForksList = requestJoin(Neighbors, ForkList),
-    print("Requested to join everybody~n"),
-    %% spawn processes to monitor neighbors once joined
-    check_neighbors(Neighbors, self()), 
-    %now we start thinking
-    philosophize(thinking, Neighbors, ForksList);
-
-
-%When thinking, we can be told to leave, to become hungry,
-%or get request for a fork
-philosophize(thinking, Neighbors, ForksList)->
-  print("Thinking~n"),
-  receive
-      % Told by exteranl controller to leave
-     {NewNode, leaving} -> 
-            print("~p left, removing him from lists", [NewNode]),
-            NewNeighbors = lists:delete(NewNode, Neighbors),
-            NewForkList = dict:erase(NewNode, ForksList),
-            philosophize(thinking, NewNeighbors, NewForkList);
-      % Told by another philosopher that he's leaving
-     {Pid, NewRef, leave} ->
-           print("Leaving~n"),
-           philosophize(leaving, Neighbors, ForksList, Pid, NewRef);
-     
-     % Told to become hungry
-     {Pid, NewRef, become_hungry} ->
-           print("becoming hungry~n"),
-           %Send fork requests to everyone
-           requestForks(Neighbors, ForksList),
-           print("Sent requests for forks~n"),
-           case (haveAllForks(Neighbors, ForksList)) of
-              true -> Pid ! {NewRef, eating},
-                    print("Have all forks!~n"),
-                    philosophize(eating, Neighbors, ForksList, []);
-              false -> print("Don't have all forks :(~n"),
-                    philosophize(hungry, Neighbors, ForksList, [], Pid, NewRef)
-           end;
-     
-     % Another process requests to join
-    {NewNode, requestJoin} ->
-           print("~p requested to Join, accepting~n",[NewNode]),
-           NewNeighbors = lists:append(Neighbors, [NewNode]),
-           ForkList = dict:append(NewNode, {1, "DIRTY"}, ForksList),
-           {philosopher, NewNode} ! {node(), ok},
-           philosophize(thinking, NewNeighbors, ForkList);
-    % Another philosopher is checking if this philosopher is still running
-    {_Pid, missing, Who} ->
-           print("~p has gone missing!~n",[Who]),
-           NewNeighbors = Neighbors -- [Who],
-	   ForkList = dict:erase(Who, ForksList),
-	   philosophize(thinking, NewNeighbors, ForkList);
-    % monitor alerting that a leaving philosopher has left
-    {_Pid, check, Who} ->
-	   print("~p has left for sure, more SPAGHETTI for me!~n", [Who]),
-	   NewNeighbors = Neighbors -- [Who],
-	   ForkList = dict:erase(Who, ForksList),
-	   philosophize(thinking, NewNeighbors, ForkList);
-     % We get a request for a fork, which we send since we don't need it       
-       {NewNode, requestFork} ->
-           print("sending fork to ~p~n",[NewNode]),
-           %delete the fork from the list send message
-           ForkList = dict:erase(NewNode, ForksList),
-           NewForkList = dict:append(NewNode, {0, "DIRTY"}, ForkList),
-           {philosopher, NewNode} ! {node(), fork},
-           philosophize(thinking, Neighbors, NewForkList)
-  end.
-
-
-% Eating phase, the philosopher has all the forks it needs from its neighbors,
-% eventually exits back to thinking or leaving, requests are handled once told
-% to stop eating
-philosophize(eating, Neighbors, ForksList, Requests) ->
-    print("eating!~n"),
-    receive
-      % Told by exteranl controller to leave
-        {NewNode, leaving} -> 
-            print("~p left, removing him from lists~n", [NewNode]),
-            NewNeighbors = lists:delete(NewNode, Neighbors),
-            NewForkList = dict:erase(NewNode, ForksList),
-            philosophize(eating, NewNeighbors, NewForkList, Requests);
-       % Told by another philosopher that he's leaving
-       {Pid, NewRef, leave} ->
-           print("leaving~n"),
-           philosophize(leaving,Neighbors, ForksList, Pid, NewRef);
-        % Told by external controller to stop eating
-       {Pid, NewRef, stop_eating} ->
-           print("stopped_eating~n"),
-           %send the forks to the processes that wanted them
-           ForkList = sendForks(Requests, ForksList),
-           Pid ! {NewRef, fork},
-           philosophize(thinking, Neighbors, ForkList);
-      % Another philosopher is checking if this philosopher is still running
-    {_Pid, missing, Who} ->
-           print("~p has gone missing!~n",[Who]),
-           NewNeighbors = Neighbors -- [Who],
-	   ForkList = dict:erase(Who, ForksList),
-	   philosophize(thinking, NewNeighbors, ForkList);
-    % monitor alerting that a leaving philosopher has left
-    {_Pid, check, Who} ->
-	   print("~p has left for sure, more SPAGHETTI for me!~n", [Who]),
-	   NewNeighbors = Neighbors -- [Who],
-	   ForkList = dict:erase(Who, ForksList),
-	   philosophize(thinking, NewNeighbors, ForkList);
-    %Another process requests to join 
-       % Handle when another process wants to join us
-       {NewNode, requestJoin} ->
-            print("~p requested to join~n",[NewNode]),
-            %if we get a join request, just create the fork and give acknowledgement
-            NewRequests = lists:append(Neighbors, [NewNode]),
-            ForkList = dict:append(NewNode, {1, "DIRTY"}, ForksList),
-            {philosopher, NewNode} ! {node(), ok},
-            philosophize(eating, Neighbors, ForkList, NewRequests)
-    end.
-% Is hungry, already requested all the forks 
-philosophize(hungry, Neighbors, ForksList, RequestList, Pid, Ref)->   
-    print("Hungry, waiting for forks~n"),
-    receive
-    %Get the fork from the other process
-        {NewPid, NewRef, leave} ->
-           print("Leaving~n"),
-           philosophize(leaving, Neighbors, ForksList, NewPid, NewRef);
-        {NewNode, leaving} -> 
-            print("~p left, removing him from lists~n", [NewNode]),
-            NewNeighbors = lists:delete(NewNode, Neighbors),
-            NewForkList = dict:erase(NewNode, ForksList),
-            case (haveAllForks(NewNeighbors, NewForkList)) of
-              true -> Pid ! {Ref, eating},
-                    philosophize(eating, NewNeighbors, NewForkList, RequestList);
-              false -> philosophize(hungry, NewNeighbors, NewForkList, RequestList, Pid, Ref)
-            end;
-        % Get a fork from a process, add it to the list and see if we have
-        % all of them to eat
-        {NewNode, fork} -> 
-            print("Got fork from ~p~n",[NewNode]),
-            ForkList = dict:erase(NewNode, ForksList),
-            NewForkList = dict:append(NewNode, {1, "CLEAN"}, ForkList),
-            case (haveAllForks(Neighbors, NewForkList)) of
-              true -> Pid ! {Ref, eating},
-                    philosophize(eating, Neighbors, NewForkList, RequestList);
-              false -> philosophize(hungry, Neighbors, NewForkList, RequestList, Pid, Ref)
-            end;
-        % Another process joins, create the fork and give acknowledgement
-        {NewNode, requestJoin} ->
-            print("~p requested to join~n",[NewNode]),
-            %if we get a join request, just create the fork and give acknowledgement
-            dict:append(NewNode, [1, "DIRTY"], ForksList),
-            {philosopher, NewNode} ! {node(), ok};
-            % if someone requests a fork
-         % Another philosopher is checking if this philosopher is still running
-    	{Pid, missing, Who} ->
-           print("~p has gone missing!~n",[Who]),
-           NewNeighbors = Neighbors -- [Who],
-	   ForkList = dict:erase(Who, ForksList),
-	   philosophize(thinking, NewNeighbors, ForkList);
-    % monitor alerting that a leaving philosopher has left
-    	{Pid, check, Who} ->
-	   print("~p has left for sure, more SPAGHETTI for me!~n", [Who]),
-	   NewNeighbors = Neighbors -- [Who],
-	   ForkList = dict:erase(Who, ForksList),
-	   philosophize(thinking, NewNeighbors, ForkList);
- %% Check the priority and give the fork only if they have
-        % higher priority
-        {NewNode, requestFork} -> 
-            print("~p requested the fork~n",[NewNode]),
-            case (dict:find(NewNode, ForksList)) of
-            %Check status
-            {ok, [{1, "CLEAN"}]} -> print("My fork!, but I'll remember you wanted it~n"),
-                                RequestsList = lists:append(RequestList, [NewNode]),
-                                philosophize(hungry, Neighbors, ForksList, RequestsList, Pid, Ref);
-            {ok, [{1, "DIRTY"}]} -> print("~p Fine, I give it up~n",[NewNode]),
-                          ForkList = dict:erase(NewNode, ForksList),
-                          NewForkList = dict:append(NewNode, [0, "SPAGHETTI SAUCE"], ForkList),
-                          {philosopher, NewNode} ! {node(), fork},
-                          philosophize(hungry, Neighbors, NewForkList, RequestList, Pid, Ref)
-            end
-      end,
-    philosophize(hungry, Neighbors, ForksList, RequestList, Pid, Ref).
-
-
-% Before leaving, the philosopher sends messages to all its neighbors
-% telling them he's leaving and then leaves. Gone is not really a state,
-% just alerts controller that he successfully left
-philosophize(leaving, [], _, Pid, Ref) -> Pid ! {Ref, gone},
-    print("I'm gone forever!~n"),
-    halt();
-philosophize(leaving, Neighbors, ForksList, Pid, Ref) -> 
-    {philosopher, hd(Neighbors)} ! {node(), leaving},
-    philosophize(leaving, tl(Neighbors), ForksList, Pid, Ref).
-
-
-% Helper functions for timestamp handling.
-get_two_digit_list(Number) ->
-  if Number < 10 ->
-       ["0"] ++ integer_to_list(Number);
-     true ->
-       integer_to_list(Number)
-  end.
-
-get_three_digit_list(Number) ->
-  if Number < 10 ->
-       ["00"] ++ integer_to_list(Number);
-     Number < 100 ->
-         ["0"] ++ integer_to_list(Number);
-     true ->
-       integer_to_list(Number)
-  end.
-
-get_formatted_time() ->
-  {MegaSecs, Secs, MicroSecs} = now(),
-  {{Year, Month, Date},{Hour, Minute, Second}} =
-    calendar:now_to_local_time({MegaSecs, Secs, MicroSecs}),
-  integer_to_list(Year) ++ ["-"] ++
-  get_two_digit_list(Month) ++ ["-"] ++
-  get_two_digit_list(Date) ++ [" "] ++
-  get_two_digit_list(Hour) ++ [":"] ++
-  get_two_digit_list(Minute) ++ [":"] ++
-  get_two_digit_list(Second) ++ ["."] ++
-  get_three_digit_list(MicroSecs div 1000).
-
-% print/1
-% includes system time.
-print(To_Print) ->
-  io:format(get_formatted_time() ++ ": " ++ To_Print).
-
-% print/2
-print(To_Print, Options) ->
-  io:format(get_formatted_time() ++ ": " ++ To_Print, Options).
-
+TODO
 \end{lstlisting}
 
 
