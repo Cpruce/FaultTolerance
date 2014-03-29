@@ -84,7 +84,7 @@ Our snapshot algorithm is based on the Chandy-Lamport algorithm.
 
 \section{The Algorithm}
 \subsection{A set of states}
-Each of the philosophers must be in one of the following 6 states:
+Each of the processes must be in one of the following 6 states:
 \newcommand{\numStates}{six}
 \newcommand{\joining}{\textit{joining}}
 \newcommand{\available}{\textit{available}}
@@ -126,44 +126,55 @@ We categorize messages by its sender and its receiver:
 \subsubsection{From Storage Processes to Non-Storage Processes}
 \begin{enumerate}[M1]
 \setcounter{enumi}{6}
-\item \label{M:become_hungry} something.
+\item \label{M:become_white} something.
 \end{enumerate}
 
 \subsubsection{From Non-Storage Processes to Storage Processes}
 \begin{enumerate}[M1]
 \setcounter{enumi}{9}
-\item an \texttt{store} Something.
-\item an \texttt{stored} Something.
-\item an \texttt{store} Something.
-\item an \texttt{store} Something.
+\item 
 \end{enumerate}
 
 \subsubsection{From Non-Storage Processes to Non-Storage Processes}
 \begin{enumerate}[M1]
 \setcounter{enumi}{9}
-\item an \texttt{eating} Something.
+\newcommand{\becomeRed}{\texttt{become\_red}}
+\item a {\becomeRed} message.
 \end{enumerate}
 
 
 \subsubsection{From Processes to External Controllers}
 \begin{enumerate}[M1]
 \setcounter{enumi}{9}
-\item a \texttt{stored} Something.
-\item a \texttt{retrieved} Something.
-\item a \texttt{result} Something.
-\item a \texttt{failure} Something.
+\newcommand{\stored}{\texttt{stored}}
+\newcommand{\retrieved}{\texttt{retrieved}}
+\newcommand{\result}{\texttt{result}}
+\newcommand{\failure}{\texttt{failure}}
+
+\item a {\stored} message.
+\item a {\retrieved} message.
+\item a {\result} message.
+\item a {\failure} message.
 \end{enumerate}
 
 \subsubsection{From External Controllers to Processes}
 \begin{enumerate}[M1]
 \setcounter{enumi}{9}
-\item a \texttt{store} Something.
-\item a \texttt{retrieve} Something.
-\item a \texttt{first\_key} Something.
-\item a \texttt{last\_key} Something.
-\item a \texttt{num\_keys} Something.
-\item a \texttt{node\_list} Something.
-\item a \texttt{leave} Something.
+\newcommand{\store}{\texttt{store}}
+\newcommand{\retrieve}{\texttt{retrieve}}
+\newcommand{\firstKey}{\texttt{first\_key}}
+\newcommand{\lastKey}{\texttt{last\_key}}
+\newcommand{\numKeys}{\texttt{num\_keys}}
+\newcommand{\nodeList}{\texttt{node\_list}}
+\newcommand{\leave}{\texttt{leave}}
+
+\item a {\store} message.
+\item a {\retrieve} message.
+\item a {\firstKey} message.
+\item a {\lastKey} message.
+\item a {\numKeys} message.
+\item a {\nodeList} message.
+\item a {\leave} message.
 \end{enumerate}
 
 \subsection{Initial States of the System}
@@ -178,7 +189,7 @@ We categorize messages by its sender and its receiver:
 \caption{A diagram showing possible state transitions.}
 \end{figure}
 
-We will describe what would happen when a philosopher receives a fork.
+We will describe what would happen when a process receives a fork.
 
 
 \begin{description}
@@ -196,8 +207,8 @@ Now we need to define what should happen when a process $p$ receives an incoming
 \begin{description}
 \item[Received in the \textit{joining} state:] holds onto the request until it successfully joins and transitioned to thinking. This prevents odd joining circles that lead to deadlocks.
 \item[Received in the \textit{thinking} state:] approves request and creates a dirty fork for the edge.
-\item[Received in the \textit{hungry} state:] approves request and creates a dirty fork for the edge.
-\item[Received in the \textit{eating} state:] approves request and creates a dirty fork for the edge.
+\item[Received in the \textit{white} state:] approves request and creates a dirty fork for the edge.
+\item[Received in the \textit{red} state:] approves request and creates a dirty fork for the edge.
 \item[Received in the \textit{leaving} state:] the assignment specifies that we do not have to handle this situation, the external controller should know better.
 \item[Received in the \textit{gone} state:] not possible
 \end{description}
@@ -206,8 +217,8 @@ Now we need to define what should happen when a process $p$ receives an incoming
 \begin{description}
 \item[Received in the \textit{joining} state:] adds that neighbor to the forklist, saying you don't have the fork. Then it tries to contact the rest of your neighbors. Once all neighbors have sent it an \texttt{ok}, it can transition to the \emph{thinking} state.
 \item[Received in the \textit{thinking} state:] not possible.
-\item[Received in the \textit{hungry} state:] not possible.
-\item[Received in the \textit{eating} state:] not possible.
+\item[Received in the \textit{white} state:] not possible.
+\item[Received in the \textit{red} state:] not possible.
 \item[Received in the \textit{leaving} state:] not possible.
 \item[Received in the \textit{gone} state:] not possible.
 \end{description}
@@ -216,8 +227,8 @@ Now we need to define what should happen when a process $p$ receives an incoming
 \begin{description}
 \item[Received in the \textit{joining} state:] not possible, otherwise this problem is impossible. This is due to our Assumption
 \item[Received in the \textit{thinking} state:] removes the fork from the list and remove the neighbor from the list. It sends back \texttt{ok}.
-\item[Received in the \textit{hungry} state:] removes the fork from the list and removes the neighbor from the list. Then it checks if we have all the forks we need to eat. It sends back \texttt{ok}.
-\item[Received in the \textit{eating} state:] removes the fork from the list and removes the neighbor from the list. Then it continues eating. Sends back \texttt{ok}.
+\item[Received in the \textit{white} state:] removes the fork from the list and removes the neighbor from the list. Then it checks if we have all the forks we need to eat. It sends back \texttt{ok}.
+\item[Received in the \textit{red} state:] removes the fork from the list and removes the neighbor from the list. Then it continues red. Sends back \texttt{ok}.
 \item[Received in the \textit{leaving} state:] removes the fork from the list and removes the neighbor from the list. It sends back \texttt{ok}.
 \item[Received in the \textit{gone} state:] not possible.
 \end{description}
@@ -226,28 +237,28 @@ Now we need to define what should happen when a process $p$ receives an incoming
 \begin{description}
 \item[Received in the \textit{joining} state:] not possible.
 \item[Received in the \textit{thinking} state:] not possible.
-\item[Received in the \textit{hungry} state:] not possible.
-\item[Received in the \textit{eating} state:] not possible.
+\item[Received in the \textit{white} state:] not possible.
+\item[Received in the \textit{red} state:] not possible.
 \item[Received in the \textit{leaving} state:] Try to contact the other neighbors, remove that neighbor from the list of neighbors.
 \item[Received in the \textit{gone} state:] not possible.
 \end{description}
 
-\subsection{Actions for Incoming \texttt{become\_hungry} Messages (M\ref{M:become_hungry})}
+\subsection{Actions for Incoming \texttt{become\_white} Messages (M\ref{M:become_white})}
 \begin{description}
 \item[Received in the \textit{joining} state:] not possible
-\item[Received in the \textit{thinking} state:] sends out requests to all neighbors for forks and then transition to hungry state.
-\item[Received in the \textit{hungry} state:] justs stay hungry.
-\item[Received in the \textit{eating} state:] not possible.
+\item[Received in the \textit{thinking} state:] sends out requests to all neighbors for forks and then transition to white state.
+\item[Received in the \textit{white} state:] justs stay white.
+\item[Received in the \textit{red} state:] not possible.
 \item[Received in the \textit{leaving} state:] not possible.
 \item[Received in the \textit{gone} state:] not possible.
 \end{description}
 
-\subsection{Actions for Incoming \texttt{stop\_eating} Messages (M\ref{M:stop_eating})}
+\subsection{Actions for Incoming \texttt{stop\_red} Messages (M\ref{M:stop_red})}
 \begin{description}
 \item[Received in the \textit{joining} state:] not possible.
 \item[Received in the \textit{thinking} state:] not possible.
-\item[Received in the \textit{hungry} state:] not possible.
-\item[Received in the \textit{eating} state:] stops eating, sends out the forks to all the processes that requested them, then transitions to the \emph{thinking} state.
+\item[Received in the \textit{white} state:] not possible.
+\item[Received in the \textit{red} state:] stops red, sends out the forks to all the processes that requested them, then transitions to the \emph{thinking} state.
 \item[Received in the \textit{leaving} state:] not possible.
 \item[Received in the \textit{gone} state:] not possible.
 \end{description}
@@ -256,29 +267,29 @@ Now we need to define what should happen when a process $p$ receives an incoming
 \begin{description}
 \item[Received in the \textit{joining} state:] not possible.
 \item[Received in the \textit{thinking} state:] transitions to \emph{leaving}, which sends messages to all neighbors to say that it is leaving. Once all processes give \texttt{ok}, then it transitions to gone.
-\item[Received in the \textit{hungry} state:] transitions to \emph{leaving}, which sends message to all neighbors that he's leaving. Once all processes give \texttt{ok}, then it transitions to gone.
-\item[Received in the \textit{eating} state:] transitions to \emph{leaving}, which sends message to all neighbors that he's leaving. Once all processes give \texttt{ok}, then it transitions to gone.
+\item[Received in the \textit{white} state:] transitions to \emph{leaving}, which sends message to all neighbors that he's leaving. Once all processes give \texttt{ok}, then it transitions to gone.
+\item[Received in the \textit{red} state:] transitions to \emph{leaving}, which sends message to all neighbors that he's leaving. Once all processes give \texttt{ok}, then it transitions to gone.
 \item[Received in the \textit{leaving} state:] stay leaving.
 \item[Received in the \textit{gone} state:] not possible.
 \end{description}
 
 
-\subsection{How a new philosopher informs its neighbors that it has joined the network}
+\subsection{How a new process informs its neighbors that it has joined the network}
 Sends joining requests to all of their neighbors.
 
-\subsection{How a new philosopher knows that its neighbors are aware that it has joined the network}
+\subsection{How a new process knows that its neighbors are aware that it has joined the network}
 Waits for joining request acknowledgement messages from all of its neighbors.
-\subsection{How a philosopher informs its neighbors that it is leaving the network}
+\subsection{How a process informs its neighbors that it is leaving the network}
 Sends leaving notifications to all of their neighbors.
 
-\subsection{How a philosopher knows that its neighbors are aware that it is leaving the network}
+\subsection{How a process knows that its neighbors are aware that it is leaving the network}
 Waits for leaving notification acknowledgements from all of its neighbors.
 
 \section{Allowed Assumptions}
 
 \subsection{External Controllers}
 \begin{enumerate}[\text{A}1]
-\item \label{A:finite_time_eating} Only storage processes will receive requests from the outisde world.
+\item \label{A:finite_time_red} Only storage processes will receive requests from the outisde world.
 
 \item \label{A:no_invalid_signals} External controllers will not send duplicate or invalid control signals.
 
@@ -302,7 +313,7 @@ Suppose the parameter $m$, which is a nonnegative integer, is given.
 \begin{enumerate}[S1]
 \item {\bfseries initially} {\it p.joining}
 
-$p$ is given the state of $joining$ in which the philosopher $p$ is requesting to join the group and cannot possibly gain any other state until granted acceptance.
+$p$ is given the state of $joining$ in which the process $p$ is requesting to join the group and cannot possibly gain any other state until granted acceptance.
 
 
 \item $\#(\text{storage processes}) = 2^m.$
@@ -311,72 +322,72 @@ $p$ is given the state of $joining$ in which the philosopher $p$ is requesting t
 
 This requirement is satisfied because $p$ can be constantly trying to join the party but may be waiting infinitely or it can be granted the state of available (which is the only initial state in the party).
 
-\item {\it p.available} {\bfseries next} {\it (p.available $\vee$ p.hungry $\vee$ p.leaving)}
+\item {\it p.available} {\bfseries next} {\it (p.available $\vee$ p.white $\vee$ p.leaving)}
 
-When available, the process $p$ can continue \available, the external controller can issue the order to become hungry, or the controller may tell the process to leave. No other "state" transitions are available to the process at the $available$ state. 
+When available, the process $p$ can continue \available, the external controller can issue the order to become white, or the controller may tell the process to leave. No other "state" transitions are available to the process at the $available$ state. 
 
-\item {\it p.hungry} {\bfseries next} {\it (p.hungry $\vee$ p.eating $\vee$ p.leaving)}
+\item {\it p.white} {\bfseries next} {\it (p.white $\vee$ p.red $\vee$ p.leaving)}
 
-If a process $p$ is told by the external controller to become \emph{hungry}, then it may be told to leave, it may become \emph{eating} due to its hungry nature, or $p$ may remain \emph{hungry}. 
+If a process $p$ is told by the external controller to become \emph{white}, then it may be told to leave, it may become \emph{red} due to its white nature, or $p$ may remain \emph{white}. 
 
-\item {\it p.eating} {\bfseries next} {\it (p.eating $\vee$ p.available $\vee$ p.leaving)}
+\item {\it p.red} {\bfseries next} {\it (p.red $\vee$ p.available $\vee$ p.leaving)}
 
-If a process $p$ is $eating$, then only three cases are possible to the process. First, nothing may happen and the process will continue $eating$. Second, the external controller can tell the process to \texttt{stop\_ eating}, in which $p$ would become $available$. Third, the external controller can also tell the process to \texttt{leave}, in which $p$ would become $leaving$. No other transitions are available at this stage.
+If a process $p$ is $red$, then only three cases are possible to the process. First, nothing may happen and the process will continue $red$. Second, the external controller can tell the process to \texttt{stop\_ red}, in which $p$ would become $available$. Third, the external controller can also tell the process to \texttt{leave}, in which $p$ would become $leaving$. No other transitions are available at this stage.
 
 \item {\it p.leaving} {\bfseries next} {\it (p.leaving $\vee$ p.gone)}
 
-When a philosopher $p$ has been told to leave by the external controller, it is destined to leave thus may continue its cleanup and remain in the $leaving$ stage or the philosopher could complete the $leaving$ state and leave, successfully terminating and entering the $gone$ state.
+When a process $p$ has been told to leave by the external controller, it is destined to leave thus may continue its cleanup and remain in the $leaving$ stage or the process could complete the $leaving$ state and leave, successfully terminating and entering the $gone$ state.
 
 \item {\it p.gone} {\bfseries next} {\it (p.gone)}
 
-When a philosopher $p$ is $gone$, the philosopher may not join again (implying it may not reach anymore states) and thus is in the fixed state of $gone$.
+When a process $p$ is $gone$, the process may not join again (implying it may not reach anymore states) and thus is in the fixed state of $gone$.
 
-\item {\it p.eating} $\Rightarrow \langle \forall q | q \in p.neighbors \rhd \neg q.eating \rangle$
-(when a philosopher $p$ is $eating$, none of its neighbors is $eating$)
+\item {\it p.red} $\Rightarrow \langle \forall q | q \in p.neighbors \rhd \neg q.red \rangle$
+(when a process $p$ is $red$, none of its neighbors is $red$)
 
-When a philosopher $p$ is $eating$, then it holds all of its forks that it shares with its neighbors and since a philosopher needs all of the forks it shares with its neighbors, that philosopher with the forks will be the only one eating.
+When a process $p$ is $red$, then it holds all of its forks that it shares with its neighbors and since a process needs all of the forks it shares with its neighbors, that process with the forks will be the only one red.
 
 
-\item \label{S:mutual_neighbors} {\it (p.thinking $\vee$ p.hungry $\vee$ p.eating)} $\Rightarrow \langle \forall q | q \in p.neighbors \rhd p \in q.neighbors \rangle$
-(when a philosopher $p$ is $thinking$, $hungry$, or $eating$, each of $p$'s neighbors knows that $p$ is one of its neighbors)
+\item \label{S:mutual_neighbors} {\it (p.thinking $\vee$ p.white $\vee$ p.red)} $\Rightarrow \langle \forall q | q \in p.neighbors \rhd p \in q.neighbors \rangle$
+(when a process $p$ is $thinking$, $white$, or $red$, each of $p$'s neighbors knows that $p$ is one of its neighbors)
 
-After joining, a leaving philosopher $q$ knows its neighbors and in each state $thinking$, $hungry$, or $eating$, the neighbors list is updated if a neighbor leaves. Thus, each state has a real-time copy of the neighboring philosophers.
+After joining, a leaving process $q$ knows its neighbors and in each state $thinking$, $white$, or $red$, the neighbors list is updated if a neighbor leaves. Thus, each state has a real-time copy of the neighboring processes.
 
-Before the philosopher $q$ can leave or remove a neighbor $p$ who is either $thinking$, $hungry$, or $eating$ from $q.neighbors$, we guarantee that $p$ remove $q$ first.
+Before the process $q$ can leave or remove a neighbor $p$ who is either $thinking$, $white$, or $red$ from $q.neighbors$, we guarantee that $p$ remove $q$ first.
 
 \item {\it p.gone} $\Rightarrow \langle \forall q  \rhd p\not\in q.neighbors \rangle$
-(when a philosopher $p$ is $gone$, it is not in any other philosopher's set of neighbors)
+(when a process $p$ is $gone$, it is not in any other process's set of neighbors)
 
-If $p$ is \emph{gone}, from our algorithm we know that $p.neighbors = \emptyset$. From this fact and from the safety property S\ref{S:mutual_neighbors}, we know that if $q$ is $thinking$, $hungry$, or $eating$, then $p$ cannot be a neighbor $q$. If $q$ is \emph{leaving} or \emph{gone}, $q.neighbors = \emptyset$ so $p\not\in q.neighbors.$ If $q$ is \emph{joining}, $p$ cannot possibly be a neighbor of $q$ due to our Assumption A\ref{A:E_guarantees_nodes_entering_network} that guarantees joining philosophers to be able to enter the network. Hence, we have covered all cases.
+If $p$ is \emph{gone}, from our algorithm we know that $p.neighbors = \emptyset$. From this fact and from the safety property S\ref{S:mutual_neighbors}, we know that if $q$ is $thinking$, $white$, or $red$, then $p$ cannot be a neighbor $q$. If $q$ is \emph{leaving} or \emph{gone}, $q.neighbors = \emptyset$ so $p\not\in q.neighbors.$ If $q$ is \emph{joining}, $p$ cannot possibly be a neighbor of $q$ due to our Assumption A\ref{A:E_guarantees_nodes_entering_network} that guarantees joining processes to be able to enter the network. Hence, we have covered all cases.
 
 
 
 \item When a storage process $p$ receives a store/retrieve message with key $k$, if $k = p.id$, then it performs an action. If not, then it forwards the request to an apppropriate process.
 
-\item $1 \leq n:= \#nodes \leq 2^m.$
+\item $1 \leq n:= \#(\text{nodes}) \leq 2^m.$
 
-\item $node_1.id \neq node_2.id$ if $node_1 \neq node_2.$
+\item $node_i.id \neq node_j.id$ if $i\neq j$ for all $0\leq i,j \leq n - 1.$ 
 
 \item $node_i.id \in \{0,1,2,\ldots, 2^m - 1\}$ for all $0\leq i \leq n - 1.$ 
 
 \item Without loss of generality, we can let
 $0 \leq node_1.id < node_2.id < \cdots < node_n.id \leq 2^m - 1.$
-Then for $i= 0, 1, \ldots, n - 1,$ $node_i$ hosts storage processes with id in the set $\{node_i.id, node_i.id + 1, node_i.id + 2, \ldots, node_{i+1}.id - 1\}$ in modulo $2^m$ calculation and with the notation $node_{n} = node_0.$
+Then, for $i= 0, 1, \ldots, n - 1,$ $node_i$ hosts the storage processes with ids in the set $\{node_i.id, node_i.id + 1, node_i.id + 2, \ldots, node_{i+1}.id - 1\}$ in modulo $2^m$ calculation and with the notation $node_{n} = node_0.$
 
 \item All storage processes are named in the global Erlang name registry.
 
 \item Each node must register at least one non-storage process (so that the node is always discoverable).
 
 
-\item If $\#node = n < 2^m$, then a new node can always join the system.
+\item If $\#(\text{nodes}) = n < 2^m$, then a new node can always join the system.
 
-\item A storage process can communicate another storage process only if they are neighbors.
+\item A storage process can communicate to another storage process only if they are neighbors.
 
-\item  A storage process can communicate a non-storage process only if they are in the same node.
+\item  A storage process can communicate to a non-storage process only if they are in the same node.
 
-\item A non-storage process can communicate a storage process only if they are in the same node.
+\item A non-storage process can communicate to a storage process only if they are in the same node.
 
-\item  A non-storage process in node $i$ can communicate a non-storage process only if it is in the nodes that host neighbors of the storage processes hosted by node $i$.
+\item  A non-storage process in node $i$ can communicate to a non-storage process only if it is in the nodes that host neighbors of the storage processes hosted by node $i$.
 
 \item Every message from the outside world (except for \texttt{leave}) must be responded to except for when relevant processes crash.
 \end{enumerate}
@@ -388,7 +399,7 @@ Then for $i= 0, 1, \ldots, n - 1,$ $node_i$ hosts storage processes with id in t
 \item
 $p.joining$ $\leadsto^*$ $p.available$ ($^*$ if its neighbors remain in the network long enough) 
 
-\indent After philosopher $p$ has started up, it has given itself the $joining$ state. Assuming that the neighbors in which $p$ knows about are running correctly and the network runs as expected and Assumption A\ref{A:E_guarantees_nodes_entering_network}, all other philosophers are bound to hear $p$'s request to join eventually and thus $p$ is guaranteed to be given the state $available$.
+\indent After process $p$ has started up, it has given itself the $joining$ state. Assuming that the neighbors in which $p$ knows about are running correctly and the network runs as expected and Assumption A\ref{A:E_guarantees_nodes_entering_network}, all other processes are bound to hear $p$'s request to join eventually and thus $p$ is guaranteed to be given the state $available$.
 
 \item 
 $p.leaving$ $\leadsto$ $p.gone$
