@@ -75,37 +75,42 @@ node_enter(M, [Neighbor], Storage)->
 	% Neighbors = filter_neighbors(Neigbors
 	
 	% start storage service!
-        storage_serve(M, Id, Neighbors, NodeNums, Storage).
+        storage_serve(M, Id, Neighbors, Storage).
 
 %% put together list of {Neighbor, NeighborId} 
-assemble_neighbors([], Neighbors) -> Neighbors;
-assemble_neighbors(NeighborsNames, Neighbors)->
-	Rcvr = hd(NeighborsNames),
+%assemble_neighbors([], Neighbors) -> Neighbors;
+%assemble_neighbors(NeighborsNames, Neighbors)->
+%	Rcvr = hd(NeighborsNames),
 	
 
 %% primary storage service function; handles
 %% general communication and functionality.
-storage_serve(M, Id, Neighbors, NodeNums, Storage)-> 
-	recieve 
+storage_serve(M, Id, Neighbors, Storage)-> 
+	receive 
 		{Pid, Ref, store, Key, Value} -> ok;
 		{Ref, stored, Oldval} -> ok;
 		{Pid, Ref, retrieve, Key} -> ok;
 		{Ref, retrieved, Value} -> ok;
 		{Pid, Ref, first_key} -> ok;
 		{Pid, Ref, last_key} -> ok;
-		{Pid , Ref, num_keys} -> ok;
+		{Pid, Ref, num_keys} -> ok;
 		{Pid, Ref, node_list} -> ok;
 		{Ref, result, Result} -> ok;
 		{Ref, failure} -> ok
 	end.
 
+%% sum digits in string
+str_sum([]) -> 0;
+str_sum([X|XS]) -> $X + str_sum(XS).
 
 %% hash function to uniformly distribute among 
 %% storage processes.
-hash(z, n) when n > 0 -> z rem n;
+hash(Str, M) when M >= 0 -> str_sum(Str) rem (math:pow(2, M));
 hash(_, _) -> -1. 	%% error if no storage
 			%% processes are open.
 
+
+%% monitor neighbors for crashes
 check_neighbors([], _)-> ok;
 check_neighbors([X|XS], ParentPid) ->
     spawn(fun() ->  monitor_neighbor(X, ParentPid) end),
@@ -119,6 +124,10 @@ monitor_neighbor(Neighbor, ParentPid) ->
             ParentPid ! {self(), missing, Neighbor}
        end.
 
+%% Chandy-Lamport Snapshot Algorithm
+
+
+%% Leader Election Algorithm
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->
