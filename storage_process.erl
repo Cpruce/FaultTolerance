@@ -20,11 +20,12 @@ main(Params) ->
         % The first parameter is m, the value that determines the number
         % of storage processes in the system.
         M = hd(Params),
-	% The storage process Id is the second
-	Id = hd(tl(Params)),
+	% The storage process Id is the second; convert to String
+	Id = lists:flatten(io_lib:format("~p", [hd(tl(Params))])),
 	% The neighbors are the third parameter
 	Neighbors = tl(tl(Params)),
-        register(storage_process, self()),
+	% register as storage_process8 where 8 is the Id
+	register(list_to_atom("storage_process"++Id), self()),
         % begin storage service! 
 	storage_serve(M, Id, Neighbors, dict:new()),
     halt().
@@ -45,4 +46,36 @@ storage_serve(M, Id, Neighbors, Storage)->
 		{Ref, failure} -> ok
 	end.
 
-
+% Helper functions for timestamp handling.
+get_two_digit_list(Number) ->
+  if Number < 10 ->
+       ["0"] ++ integer_to_list(Number);
+     true ->
+       integer_to_list(Number)
+  end.
+get_three_digit_list(Number) ->
+  if Number < 10 ->
+       ["00"] ++ integer_to_list(Number);
+     Number < 100 ->
+         ["0"] ++ integer_to_list(Number);
+     true ->
+       integer_to_list(Number)
+  end.
+get_formatted_time() ->
+  {MegaSecs, Secs, MicroSecs} = now(),
+  {{Year, Month, Date},{Hour, Minute, Second}} =
+    calendar:now_to_local_time({MegaSecs, Secs, MicroSecs}),
+  integer_to_list(Year) ++ ["-"] ++
+  get_two_digit_list(Month) ++ ["-"] ++
+  get_two_digit_list(Date) ++ [" "] ++
+  get_two_digit_list(Hour) ++ [":"] ++
+  get_two_digit_list(Minute) ++ [":"] ++
+  get_two_digit_list(Second) ++ ["."] ++
+  get_three_digit_list(MicroSecs div 1000).
+% print/1
+% includes system time.
+print(To_Print) ->
+  io:format(get_formatted_time() ++ ": " ++ To_Print).
+% print/2
+print(To_Print, Options) ->
+  io:format(get_formatted_time() ++ ": " ++ To_Print, Options).

@@ -46,7 +46,7 @@ main(Params) ->
 %% assign unique node number.
 global_processes_update(M, []) -> 
 	% first node. create all 2^M storage processes
-	IdPidList = init_storprocs(math:pow(2,M), 0);
+	IdPidList = init_storprocs(math:pow(2,M), 0, []);
 global_processes_update(M, [Neighbor])->
 	case net_kernel:connect_node(Neighbor) of 
 		true -> print("Connected to neighbor ~p~n", [Neighbor]), 
@@ -60,8 +60,8 @@ global_processes_update(M, [Neighbor])->
 %% init storage processes. return tuple list of Ids with Pid's
 init_storprocs(0, _Id, _Neighbors)-> [];
 init_storprocs(N, Id, Neighbors)->
-	Pid = spawn(storage_process, storage_process, [M, Id, Neighbors]),
-	[{Id, Pid}] ++ init_storprocs(N-1, Id++).	
+	Pid = spawn(storage_process, storage_process, [N, Id, Neighbors]),
+	[{Id, Pid}] ++ init_storprocs(N-1, Id+1, Neighbors).	
 
 %% finds the lowest id number that is not taken
 %assign_id(0, )
