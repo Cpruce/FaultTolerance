@@ -16,16 +16,21 @@
 %% ====================================================================
 % The main/1 function.
 main(Params) ->
-    % try
+	%% Example:
+	%{ash:1} erl -noshell -run key_value_node main 10 node1
+	%{elm:1} erl -noshell -run key_value_node main 10 node2 node1@ash
+	%{oak:1} erl -noshell -run key_value_node main 10 node3 node1@ash
+    
+      % try
         % The first parameter is m, the value that determines the number
         % of storage processes in the system.
         M = hd(Params),
 	% The second parameter is the name of the node to register. This
 	% should be a lowercase ASCII string with no periods or @ signs.
-	NodeName = hd(hd(Params)),
+	NodeName = hd(tl(Params)),
         % 0 or 1 additional parameters. If not nil, then the extra 
 	% parameter is the registered name of anoter node.
-	[Neighbor] = tl(Params),
+	[Neighbor] = tl(tl(Params)),
 	% IMPORTANT: Start the empd daemon!
         os:cmd("epmd -daemon"),
         % format microseconds of timestamp to get an
@@ -33,71 +38,54 @@ main(Params) ->
         net_kernel:start([list_to_atom(NodeName), shortnames]),
         register(NodeName, self()),
         % begin storage service 
-        node_enter(M, [Neighbor], dict:new()),
+        node_enter(M, [Neighbor]),
     halt().
 
 %% get and update global list of registered processes 
 %% from the one other known neighbor, connect, and
 %% assign unique node number.
-global_processes_update(_M, []) -> {0, []};
+global_processes_update(M, []) -> 
+	% first node. create all 2^M storage processes
+	IdPidList = init_storprocs(math:pow(2,M), 0);
 global_processes_update(M, [Neighbor])->
 	case net_kernel:connect_node(Neighbor) of 
 		true -> print("Connected to neighbor ~p~n", [Neighbor]), 
-			Neighbors = reg_connect(global:registered_names(), []),
-			Id = assign_id(M, Neighbors),
+			Neighbors = reg_connect(global:registered_names()--Neighbor, [], M),
+			NodeId = assign_id(math:pow(2, M), Neighbors),
 			{Id, Neighbors};
 		false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
 			{0, []} 
 	end.
 
-%% connects with the rest of the registered names, returns list of node numbes
-reg_connect([], Neighbors) -> 
-	;
-reg_connect(Names, Neighbors) ->
-	case net_kernel:connect_node(hd(Names)) of 
-		true ->  print("Connected to neighbor ~p~n", [hd(Names)]),
-			 % build Neighbors list of {Name, Id}
-			 reg_connect(tl(Names), Neighbors ++ request_id(hd(Names))); 
-	        false -> print("Could not connect to neighbor ~p~n", [hd(Names)]),
-			 reg_connect(tl(Names))
-	end.	  
+%% init storage processes. return tuple list of Ids with Pid's
+init_storprocs(0, _Id, _Neighbors)-> [];
+init_storprocs(N, Id, Neighbors)->
+	Pid = spawn(storage_process, storage_process, [M, Id, Neighbors]),
+	[{Id, Pid}] ++ init_storprocs(N-1, Id++).	
+
+%% finds the lowest id number that is not taken
+%assign_id(0, )
+%assign_id()
+
+%% creates a list of all and any other neighbors. 
+%reg_connect([], M) -> [];	
+%reg_connect(Neighbors, M) ->
+%	{hd(Neighbors), } ! {},
+%	receive
+%		{Node, }
+		
 
 %% initiate rebalancing and update all nodes
 %% when this node enters.
-node_enter(M, [Neighbor], Storage)-> 
+node_enter(M, [Neighbor])-> 
 	% connect with nodes, assign id, get nodenum list, and update global list.
 	{Id, Neighbors} = global_processes_update(M, [list_to_atom(Neighbor)]),
 	
-	% get the global set of registered processes from neighbor.
-	%NeighborsNames = global:registered_names(),
-	
-	% can only talk to neighbors with ids i + 2^k mod 2^m for 0 <= k < m
-	% Neighbors = filter_neighbors(Neigbors
-	
-	% start storage service!
-        storage_serve(M, Id, Neighbors, Storage).
+	Pid = spawn(advertise_id, advertise_id, []),
+			
 
-%% put together list of {Neighbor, NeighborId} 
-%assemble_neighbors([], Neighbors) -> Neighbors;
-%assemble_neighbors(NeighborsNames, Neighbors)->
-%	Rcvr = hd(NeighborsNames),
-	
+	ok.
 
-%% primary storage service function; handles
-%% general communication and functionality.
-storage_serve(M, Id, Neighbors, Storage)-> 
-	receive 
-		{Pid, Ref, store, Key, Value} -> ok;
-		{Ref, stored, Oldval} -> ok;
-		{Pid, Ref, retrieve, Key} -> ok;
-		{Ref, retrieved, Value} -> ok;
-		{Pid, Ref, first_key} -> ok;
-		{Pid, Ref, last_key} -> ok;
-		{Pid, Ref, num_keys} -> ok;
-		{Pid, Ref, node_list} -> ok;
-		{Ref, result, Result} -> ok;
-		{Ref, failure} -> ok
-	end.
 
 %% sum digits in string
 str_sum([]) -> 0;
