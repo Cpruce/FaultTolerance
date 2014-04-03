@@ -17,9 +17,9 @@
 % The main/1 function.
 main(Params) ->
     % try
-        % The first parameter is m, the value that determines the number
+        % The first parameter is 2^M, the value that determines the number
         % of storage processes in the system.
-        M = hd(Params),
+	M = compute_power2(hd(Params)),
 	% The storage process Id is the second; convert to String
 	Id = lists:flatten(io_lib:format("~p", [hd(tl(Params))])),
 	% The neighbors are the third parameter
@@ -45,6 +45,11 @@ storage_serve(M, Id, Neighbors, Storage)->
 		{Ref, result, Result} -> ok;
 		{Ref, failure} -> ok
 	end.
+
+%% compute M from 2^M
+compute_power2(N) when N < 2 -> 0;
+compute_power2(N) -> 
+	1+compute_power2(math:pow(N, 1/2)).
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->

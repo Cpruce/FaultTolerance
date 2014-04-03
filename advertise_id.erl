@@ -28,10 +28,11 @@ main(Params) ->
     halt().
 
 %% wait for any Id queries
-advertise(Id, NodeName)->
+advertise(Id, _NodeName)->
 	receive
-		{Ret, id} ->
-			Ret ! {self(), Id}
+		{RetNode, id} ->
+			print("Received Id request from ~p~n", [RetNode]),
+			RetNode ! {self(), Id}
 	end.	
 
 
@@ -63,8 +64,8 @@ get_formatted_time() ->
   get_three_digit_list(MicroSecs div 1000).
 % print/1
 % includes system time.
-print(To_Print) ->
-  io:format(get_formatted_time() ++ ": " ++ To_Print).
+%print(To_Print) ->
+%  io:format(get_formatted_time() ++ ": " ++ To_Print).
 % print/2
 print(To_Print, Options) ->
   io:format(get_formatted_time() ++ ": " ++ To_Print, Options).

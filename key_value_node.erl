@@ -38,15 +38,13 @@ main(Params) ->
         net_kernel:start([list_to_atom(NodeName), shortnames]),
         register(NodeName, self()),
         % begin storage service 
-        node_enter(M, [Neighbor]),
+        node_enter(M, NodeName, [Neighbor]),
     halt().
 
 %% get and update global list of registered processes 
 %% from the one other known neighbor, connect, and
 %% assign unique node number.
 global_processes_update(M, []) -> 
-	% first node. create all 2^M storage processes
-	IdPidList = init_storprocs(math:pow(2,M), 0, []);
 global_processes_update(M, [Neighbor])->
 	case net_kernel:connect_node(Neighbor) of 
 		true -> print("Connected to neighbor ~p~n", [Neighbor]), 
@@ -57,6 +55,7 @@ global_processes_update(M, [Neighbor])->
 			{0, []} 
 	end.
 
+%% Case: if this node is the first node
 %% init storage processes. return tuple list of Ids with Pid's
 init_storprocs(0, _Id, _Neighbors)-> [];
 init_storprocs(N, Id, Neighbors)->
@@ -77,11 +76,15 @@ init_storprocs(N, Id, Neighbors)->
 
 %% initiate rebalancing and update all nodes
 %% when this node enters.
-node_enter(M, [Neighbor])-> 
+node_enter(M, NodeName, [])->
+	% first node. create all 2^M storage processes
+	IdPidList = init_storprocs(math:pow(2,M), 0),
+	{0, IdPidList};
+node_enter(M, NodeName, [Neighbor])-> 
 	% connect with nodes, assign id, get nodenum list, and update global list.
 	{Id, Neighbors} = global_processes_update(M, [list_to_atom(Neighbor)]),
 	
-	Pid = spawn(advertise_id, advertise_id, []),
+	Pid = spawn(advertise_id, advertise_id, [Id, NodeName]),
 			
 
 	ok.
