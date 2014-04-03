@@ -16,16 +16,15 @@
 %% ====================================================================
 % The main/1 function.
 main(Params) ->
-    
       % try
-        % The first parameter is the Id, the unique identifier of the NODE
-        Id = hd(Params),
-	% The second parameter is the registered name of the node   
-   	[NodeName] = tl(Params), 
-	register(lists:flatten(io_lib:format("advertising_~p", [NodeName])), self()),
-        % begin advertising service 
-        advertise(Id, NodeName),
-    halt().
+      % The first parameter is the Id, the unique identifier of the NODE
+      Id = hd(Params),
+      % The second parameter is the registered name of the node   
+      [NodeName] = tl(Params), 
+      register(lists:flatten(io_lib:format("advertising_~p", [NodeName])), self()),
+      % begin advertising service 
+      advertise(Id, NodeName),
+      halt().
 
 %% wait for any Id queries
 advertise(Id, _NodeName)->

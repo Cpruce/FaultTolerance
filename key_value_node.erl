@@ -84,9 +84,8 @@ node_enter(M, NodeName, [Neighbor])->
 	% connect with nodes, assign id, get nodenum list, and update global list.
 	{Id, Neighbors} = global_processes_update(M, [list_to_atom(Neighbor)]),
 	
-	Pid = spawn(advertise_id, advertise_id, [Id, NodeName]),
-			
-
+  % (module, name, args)
+  Pid = spawn(advertise_id, advertise_id, [Id, NodeName]),
 	ok.
 
 
