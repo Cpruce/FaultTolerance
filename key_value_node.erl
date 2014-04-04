@@ -16,77 +16,77 @@
 %% ====================================================================
 % The main/1 function.
 main(Params) ->
-	%% Example:
-	%{ash:1} erl -noshell -run key_value_node main 10 node1
-	%{elm:1} erl -noshell -run key_value_node main 10 node2 node1@ash
-	%{oak:1} erl -noshell -run key_value_node main 10 node3 node1@ash
-    
-      % try
-        % The first parameter is m, the value that determines the number
-        % of storage processes in the system.
-        M = hd(Params),
-	% The second parameter is the name of the node to register. This
-	% should be a lowercase ASCII string with no periods or @ signs.
-	NodeName = hd(tl(Params)),
-        % 0 or 1 additional parameters. If not nil, then the extra 
-	% parameter is the registered name of anoter node.
-	[Neighbor] = tl(tl(Params)),
-	% IMPORTANT: Start the empd daemon!
-        os:cmd("epmd -daemon"),
-        % format microseconds of timestamp to get an
-        % effectively-unique node name
-        net_kernel:start([list_to_atom(NodeName), shortnames]),
-        register(NodeName, self()),
-        % begin storage service 
-        node_enter(M, NodeName, [Neighbor]),
-    halt().
+  %% Example:
+  % {ash:1} erl -noshell -run key_value_node main 10 node1
+  % {elm:1} erl -noshell -run key_value_node main 10 node2 node1@ash
+  % {oak:1} erl -noshell -run key_value_node main 10 node3 node1@ash
+  
+  % try
+  % The first parameter is m, the value that determines the number
+  % of storage processes in the system.
+  M = hd(Params),
+  % The second parameter is the name of the node to register. This
+  % should be a lowercase ASCII string with no periods or @ signs.
+  NodeName = hd(tl(Params)),
+  % 0 or 1 additional parameters. If not nil, then the extra 
+  % parameter is the registered name of anoter node.
+  [Neighbor] = tl(tl(Params)),
+  % IMPORTANT: Start the empd daemon!
+  os:cmd("epmd -daemon"),
+  % format microseconds of timestamp to get an
+  % effectively-unique node name
+  net_kernel:start([list_to_atom(NodeName), shortnames]),
+  register(NodeName, self()),
+  % begin storage service 
+  node_enter(M, NodeName, [Neighbor]),
+  halt().
 
 %% get and update global list of registered processes 
 %% from the one other known neighbor, connect, and
 %% assign unique node number.
 global_processes_update(M, []) -> 
-global_processes_update(M, [Neighbor])->
-	case net_kernel:connect_node(Neighbor) of 
-		true -> print("Connected to neighbor ~p~n", [Neighbor]), 
-			Neighbors = reg_connect(global:registered_names()--Neighbor, [], M),
-			NodeId = assign_id(math:pow(2, M), Neighbors),
-			{Id, Neighbors};
-		false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
-			{0, []} 
-	end.
+global_processes_update(M, [Neighbor]) ->
+  case net_kernel:connect_node(Neighbor) of 
+    true -> print("Connected to neighbor ~p~n", [Neighbor]), 
+      Neighbors = reg_connect(global:registered_names() -- Neighbor, [], M),
+      NodeId = assign_id(math:pow(2, M), Neighbors),
+      {Id, Neighbors};
+    false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
+      {0, []} 
+  end.
 
 %% Case: if this node is the first node
 %% init storage processes. return tuple list of Ids with Pid's
-init_storprocs(0, _Id, _Neighbors)-> [];
-init_storprocs(N, Id, Neighbors)->
-	Pid = spawn(storage_process, storage_process, [N, Id, Neighbors]),
-	[{Id, Pid}] ++ init_storprocs(N-1, Id+1, Neighbors).	
+init_storprocs(0, _Id) -> [];
+init_storprocs(N, Id) ->
+  Pid = spawn(storage_process, storage_process, [N, Id, []]),
+  [{Id, Pid}] ++ init_storprocs(N - 1, Id + 1). 
 
 %% finds the lowest id number that is not taken
 %assign_id(0, )
 %assign_id()
 
 %% creates a list of all and any other neighbors. 
-%reg_connect([], M) -> [];	
+%reg_connect([], M) -> [];  
 %reg_connect(Neighbors, M) ->
-%	{hd(Neighbors), } ! {},
-%	receive
-%		{Node, }
-		
+% {hd(Neighbors), } ! {},
+% receive
+%   {Node, }
+    
 
 %% initiate rebalancing and update all nodes
 %% when this node enters.
 node_enter(M, NodeName, [])->
-	% first node. create all 2^M storage processes
-	IdPidList = init_storprocs(math:pow(2,M), 0),
-	{0, IdPidList};
+  % first node. create all 2^M storage processes
+  IdPidList = init_storprocs(math:pow(2,M), 0),
+  {0, IdPidList};
 node_enter(M, NodeName, [Neighbor])-> 
-	% connect with nodes, assign id, get nodenum list, and update global list.
-	{Id, Neighbors} = global_processes_update(M, [list_to_atom(Neighbor)]),
-	
+  % connect with nodes, assign id, get nodenum list, and update global list.
+  {Id, Neighbors} = global_processes_update(M, [list_to_atom(Neighbor)]),
+  
   % (module, name, args)
   Pid = spawn(advertise_id, advertise_id, [Id, NodeName]),
-	ok.
+  ok.
 
 
 %% sum digits in string
@@ -96,8 +96,8 @@ str_sum([X|XS]) -> $X + str_sum(XS).
 %% hash function to uniformly distribute among 
 %% storage processes.
 hash(Str, M) when M >= 0 -> str_sum(Str) rem (math:pow(2, M));
-hash(_, _) -> -1. 	%% error if no storage
-			%% processes are open.
+hash(_, _) -> -1.   %% error if no storage
+      %% processes are open.
 
 
 %% monitor neighbors for crashes

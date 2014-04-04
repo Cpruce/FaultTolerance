@@ -50,37 +50,3 @@ storage_serve(M, Id, Neighbors, Storage)->
 compute_power2(N) when N < 2 -> 0;
 compute_power2(N) -> 
 	1+compute_power2(math:pow(N, 1/2)).
-
-% Helper functions for timestamp handling.
-get_two_digit_list(Number) ->
-  if Number < 10 ->
-       ["0"] ++ integer_to_list(Number);
-     true ->
-       integer_to_list(Number)
-  end.
-get_three_digit_list(Number) ->
-  if Number < 10 ->
-       ["00"] ++ integer_to_list(Number);
-     Number < 100 ->
-         ["0"] ++ integer_to_list(Number);
-     true ->
-       integer_to_list(Number)
-  end.
-get_formatted_time() ->
-  {MegaSecs, Secs, MicroSecs} = now(),
-  {{Year, Month, Date},{Hour, Minute, Second}} =
-    calendar:now_to_local_time({MegaSecs, Secs, MicroSecs}),
-  integer_to_list(Year) ++ ["-"] ++
-  get_two_digit_list(Month) ++ ["-"] ++
-  get_two_digit_list(Date) ++ [" "] ++
-  get_two_digit_list(Hour) ++ [":"] ++
-  get_two_digit_list(Minute) ++ [":"] ++
-  get_two_digit_list(Second) ++ ["."] ++
-  get_three_digit_list(MicroSecs div 1000).
-% print/1
-% includes system time.
-print(To_Print) ->
-  io:format(get_formatted_time() ++ ": " ++ To_Print).
-% print/2
-print(To_Print, Options) ->
-  io:format(get_formatted_time() ++ ": " ++ To_Print, Options).
