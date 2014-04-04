@@ -1,6 +1,6 @@
 test my running
 
-	erlc key_value_node_temp.erl && erl -noshell -run key_value_node_temp main 3 node1
+	erlc key_value_node.erl && erl -noshell -run key_value_node main 3 node1
 
 or
 
