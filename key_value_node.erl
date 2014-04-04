@@ -1,9 +1,11 @@
 %% CSCI182E - Distributed Systems
 %% Harvey Mudd College
-%% Fault tolerant key-value store distributed system
+%% Fault tolerant distributed key-value storage system
 %% @author Cory Pruce, Tum Chaturapruek
 %% @doc _D157R18U73_
 -module(key_value_node).
+
+-import(storage_process, [storage_serve/4]).
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
@@ -24,100 +26,92 @@ main(Params) ->
   % try
   % The first parameter is m, the value that determines the number
   % of storage processes in the system.
-  M = hd(Params),
+  MString = hd(Params),
+  % convert to an integer. a float will be acceptable and will be casted 
+  % to int. Any other format of m will halt. We use to_integer instead
+  % of list_to
+  M = case string:to_integer(MString) of
+     {error, Reason} ->
+       halt("Error in m: " ++ atom_to_list(Reason));
+     {Int, _} ->
+      Int
+  end,
+  println("m = " ++ integer_to_list(M)),
   % The second parameter is the name of the node to register. This
   % should be a lowercase ASCII string with no periods or @ signs.
   NodeName = hd(tl(Params)),
-  % 0 or 1 additional parameters. If not nil, then the extra 
+  println("nodename = " ++ NodeName),
+  % 0 or more additional parameters. If not nil, then the extra 
   % parameter is the registered name of anoter node.
-  [Neighbor] = tl(tl(Params)),
-  % IMPORTANT: Start the empd daemon!
+  NeighborsList = tl(tl(Params)),
+  Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, NeighborsList),
+  if
+    Neighbors == [] ->
+      println("This node has no neighbors. It must be the first node.")
+  end,
+  % IMPORTANT: Start the epmd daemon!
   os:cmd("epmd -daemon"),
   % format microseconds of timestamp to get an
   % effectively-unique node name
   net_kernel:start([list_to_atom(NodeName), shortnames]),
-  register(NodeName, self()),
   % begin storage service 
-  node_enter(M, NodeName, [Neighbor]),
-  halt().
+  node_enter(M, NodeName, Neighbors).
 
-%% get and update global list of registered processes 
-%% from the one other known neighbor, connect, and
-%% assign unique node number.
-global_processes_update(M, []) -> 
-global_processes_update(M, [Neighbor]) ->
-  case net_kernel:connect_node(Neighbor) of 
-    true -> print("Connected to neighbor ~p~n", [Neighbor]), 
-      Neighbors = reg_connect(global:registered_names() -- Neighbor, [], M),
-      NodeId = assign_id(math:pow(2, M), Neighbors),
-      {Id, Neighbors};
-    false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
-      {0, []} 
+% initiate rebalancing and update all nodes
+% when this node enters.
+%node_enter(M, NodeName, []) ->
+  % first node. create all 2^M storage processes
+  % IdPidList = init_storage_processes(math:pow(2, M), 0),
+  %{0, IdPidList}.
+%  {0, []}.
+
+node_enter(M, NodeName, Neighbors) ->
+  TwoToTheM = round(math:pow(2, M)),
+  case Neighbors of
+      [] ->
+        % first node. create all 2^M storage processes, starting with id 0.
+        IdPidList = init_storage_processes(M, TwoToTheM, 0),
+        ok;
+      [Neighbor] -> ok;
+      _ -> ok
   end.
+
+  
+  % (module, name, args)
+  % Pid = spawn(advertise_id, advertise_id, [Id, NodeName]),
+  % ok.
+
 
 %% Case: if this node is the first node
 %% init storage processes. return tuple list of Ids with Pid's
-init_storprocs(0, _Id) -> [];
-init_storprocs(N, Id) ->
-  Pid = spawn(storage_process, storage_process, [N, Id, []]),
-  [{Id, Pid}] ++ init_storprocs(N - 1, Id + 1). 
-
-%% finds the lowest id number that is not taken
-%assign_id(0, )
-%assign_id()
-
-%% creates a list of all and any other neighbors. 
-%reg_connect([], M) -> [];  
-%reg_connect(Neighbors, M) ->
-% {hd(Neighbors), } ! {},
-% receive
-%   {Node, }
-    
-
-%% initiate rebalancing and update all nodes
-%% when this node enters.
-node_enter(M, NodeName, [])->
-  % first node. create all 2^M storage processes
-  IdPidList = init_storprocs(math:pow(2,M), 0),
-  {0, IdPidList};
-node_enter(M, NodeName, [Neighbor])-> 
-  % connect with nodes, assign id, get nodenum list, and update global list.
-  {Id, Neighbors} = global_processes_update(M, [list_to_atom(Neighbor)]),
-  
-  % (module, name, args)
-  Pid = spawn(advertise_id, advertise_id, [Id, NodeName]),
-  ok.
+init_storage_processes(0, _, _Id) -> [];
+init_storage_processes(M, TwoToTheM, TwoToTheM) -> [];
+init_storage_processes(M, TwoToTheM, Id) ->
+  % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
+  Neighbors = [ Id + round(math:pow(2, K)) || K <-lists:seq(0, M - 1)],
+  println("Spawning a storage process with id = ~p...", [Id]),
+  println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
+  % spawn's arguments are: Module, Function, Args
+  Pid = spawn(storage_process_temp, storage_serve, [M, Id, Neighbors, []]),
+  println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
+  [{Id, Pid}] ++ init_storage_processes(M, TwoToTheM, Id + 1). 
 
 
-%% sum digits in string
-str_sum([]) -> 0;
-str_sum([X|XS]) -> $X + str_sum(XS).
 
-%% hash function to uniformly distribute among 
-%% storage processes.
-hash(Str, M) when M >= 0 -> str_sum(Str) rem (math:pow(2, M));
-hash(_, _) -> -1.   %% error if no storage
-      %% processes are open.
+% %% get and update global list of registered processes 
+% %% from the one other known neighbor, connect, and
+% %% assign unique node number.
+% global_processes_update(M, [Neighbor]) ->
+%   case net_kernel:connect_node(Neighbor) of 
+%     true -> print("Connected to neighbor ~p~n", [Neighbor]), 
+%       % Neighbors = reg_connect(global:registered_names() -- Neighbor, [], M),
+%       % NodeId = assign_id(math:pow(2, M), Neighbors),
+%       {0, []};
+%       %{Id, Neighbors};
+%     false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
+%       {0, []} 
+%   end.
 
-
-%% monitor neighbors for crashes
-check_neighbors([], _)-> ok;
-check_neighbors([X|XS], ParentPid) ->
-    spawn(fun() ->  monitor_neighbor(X, ParentPid) end),
-    check_neighbors(XS, ParentPid).
-monitor_neighbor(Neighbor, ParentPid) ->
-    erlang:monitor(process,{neighbor, Neighbor}), %{RegName, Node}
-       receive
-        {'DOWN', _Ref, process, _Pid,  normal}  ->
-            ParentPid ! {self(), check, Neighbor};
-        {'DOWN', _Ref, process, _Pid,  _Reason} ->
-            ParentPid ! {self(), missing, Neighbor}
-       end.
-
-%% Chandy-Lamport Snapshot Algorithm
-
-
-%% Leader Election Algorithm
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->
@@ -145,6 +139,16 @@ get_formatted_time() ->
   get_two_digit_list(Minute) ++ [":"] ++
   get_two_digit_list(Second) ++ ["."] ++
   get_three_digit_list(MicroSecs div 1000).
+
+% println/1
+% print and add a new line at the end
+println(To_Print) ->
+  print(To_Print ++ "~n").
+
+% println/2
+println(To_Print, Options) ->
+  print(To_Print ++ "~n", Options).
+
 % print/1
 % includes system time.
 print(To_Print) ->
