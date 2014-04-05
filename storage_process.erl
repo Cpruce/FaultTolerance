@@ -29,8 +29,9 @@ find_neighbor(Neighbors, Id)->
 
 %% primary storage service function; handles
 %% general communication and functionality.
-storage_serve(M, Id, Neighbors, Storage)-> 
-  receive 
+storage_serve(M, NodeName, Id, Neighbors, Storage)-> 
+	register(list_to_atom("StorageProcess"++Id), self()),
+   receive 
     {Pid, Ref, store, Key, Value} -> 
 	   print("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),	
 			case hash(Key, M) == Id of

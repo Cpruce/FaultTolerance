@@ -6,6 +6,7 @@
 -module(key_value_node).
 
 -import(storage_process, [storage_serve/4]).
+-import(advertise_id, [advertise/1]).
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
@@ -59,59 +60,73 @@ main(Params) ->
 
 % initiate rebalancing and update all nodes
 % when this node enters.
-%node_enter(M, NodeName, []) ->
-  % first node. create all 2^M storage processes
-  % IdPidList = init_storage_processes(math:pow(2, M), 0),
-  %{0, IdPidList}.
-%  {0, []}.
-
 node_enter(M, NodeName, Neighbors) ->
   TwoToTheM = round(math:pow(2, M)),
   case Neighbors of
       [] ->
         % first node. create all 2^M storage processes, starting with id 0.
-        IdPidList = init_storage_processes(M, TwoToTheM, 0),
-        ok;
-      [Neighbor] -> ok;
+        StorageProcs = init_storage_processes(M, TwoToTheM, 0),
+	Pid = spawn(advertise_id, advertise, [0, NodeName, [], StorageProcs, TwoToTheM]),
+	ok;
+      [Neighbor] ->
+	% contact known neighbor to get list of everyone.
+        % assign id and balance load. End with advertising,	
+	{Id, NewNeighbors} = global_processes_update(TwoToTheM, Neighbor),
+	StorageProcs = enter_load_balance(NewNeighbors, [], TwoToTheM),
+	Pid = spawn(advertise_id, advertise, [Id, NodeName, NewNeighbors, StorageProcs, TwoToTheM]),
+	ok;
       _ -> ok
   end.
 
-  
-  % (module, name, args)
-  % Pid = spawn(advertise_id, advertise_id, [Id, NodeName]),
-  % ok.
-
+%% retreive storage processes from other nodes
+enter_load_balance(Neighbors, Storage_Procs, TwoToTheM)->ok.
 
 %% Case: if this node is the first node
 %% init storage processes. return tuple list of Ids with Pid's
 init_storage_processes(0, _, _Id) -> [];
-init_storage_processes(M, TwoToTheM, TwoToTheM) -> [];
+init_storage_processes(_M, TwoToTheM, TwoToTheM) -> [];
 init_storage_processes(M, TwoToTheM, Id) ->
   % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
   Neighbors = [ Id + round(math:pow(2, K)) || K <-lists:seq(0, M - 1)],
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
   % spawn's arguments are: Module, Function, Args
-  Pid = spawn(storage_process_temp, storage_serve, [M, Id, Neighbors, []]),
+  Pid = spawn(storage_process, storage_serve, [M, Id, Neighbors, []]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [{Id, Pid}] ++ init_storage_processes(M, TwoToTheM, Id + 1). 
 
+%% get and update global list of registered nodes 
+%% from the one other known neighbor, connect, and
+%% assign unique node number.
+global_processes_update(TwoToTheM, [Neighbor], NodeName) ->
+   case net_kernel:connect_node(Neighbor) of 
+     true -> print("Connected to neighbor ~p~n", [Neighbor]), 
+       NeighborsNames = global:registered_names(),
+       Neighbors = get_global_list(NeighborsNames, Neighbor, NodeName),
+       Id = assign_id(TwoToTheM, Neighbors),
+       {Id, Neighbors};
+     false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
+       {0, []} 
+   end.
+
+%% gets global list of {Node, Id, Pid}'s
+get_global_list(NeighborsNames, Neighbor, NodeName)->
+	print("Sending request to ~p for the node list~n", [Neighbor]),
+	Neighbor ! {NodeName, nodes_list},
+	receive
+		{RetNode, ret_node_list, NodeList} ->
 
 
-% %% get and update global list of registered processes 
-% %% from the one other known neighbor, connect, and
-% %% assign unique node number.
-% global_processes_update(M, [Neighbor]) ->
-%   case net_kernel:connect_node(Neighbor) of 
-%     true -> print("Connected to neighbor ~p~n", [Neighbor]), 
-%       % Neighbors = reg_connect(global:registered_names() -- Neighbor, [], M),
-%       % NodeId = assign_id(math:pow(2, M), Neighbors),
-%       {0, []};
-%       %{Id, Neighbors};
-%     false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
-%       {0, []} 
-%   end.
-
+%% compute furtherest distance between any two node ids
+calc_furtherest_dist([], {{Name, Id, Pid},X})-> {{Name, Id, Pid},X});
+calc_furtherest_dist([{NameN, IdN, PidN}, Neighbors], {{Name, Id, Pid},X})->
+	case math:abs(IdN-Id)>X of
+		true ->
+			Ret = math:abs(IdN - Id),
+		        case (IdN-Id)<0 of 	
+				true -> calc_furtherest_dist(Neighbors, {NameN, IdN, PidN, Ret});
+	        false ->
+				
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->
