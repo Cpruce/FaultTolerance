@@ -5,7 +5,7 @@
 %% @doc _D157R18U73_
 -module(key_value_node_temp).
 
--import(storage_process_temp, [storage_serve/4]).
+-import(storage_process, [storage_serve/4]).
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
@@ -88,16 +88,17 @@ node_enter(M, NodeName, Neighbors) ->
 
 %% Case: if this node is the first node
 %% init storage processes. return tuple list of Ids with Pid's
-init_storage_processes(0, _, _Id) -> [];
-init_storage_processes(M, TwoToTheM, TwoToTheM) -> [];
+init_storage_processes(0, _TwoToTheM, _Id) -> [];
+init_storage_processes(_M, TwoToTheM, TwoToTheM) -> [];
 init_storage_processes(M, TwoToTheM, Id) ->
   % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
   Neighbors = [Id + round(math:pow(2, K)) || K <-lists:seq(0, M - 1)],
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~s",
     [Id, pretty_print_list_of_nums(Neighbors)]),
-  % spawn's arguments are: Module, Function, Args
-  Pid = spawn(storage_process_temp, storage_serve, [M, Id, Neighbors, []]),
+  % spawn's arguments: Module, Function, Args
+  % storate_serve's arguments: M, Id, Neighbors, Storage
+  Pid = spawn(storage_process, storage_serve, [M, Id, Neighbors, []]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [{Id, Pid}] ++ init_storage_processes(M, TwoToTheM, Id + 1). 
 

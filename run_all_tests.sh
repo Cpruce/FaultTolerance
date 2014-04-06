@@ -1,3 +1,4 @@
-for f in *.sh:
-	bash f
-end
+for f in tests/automated_testing/*.sh
+do
+	bash $f
+done
