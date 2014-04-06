@@ -44,6 +44,7 @@ main(Params) ->
   % 0 or more additional parameters. If not nil, then the extra 
   % parameter is the registered name of anoter node.
   NeighborsList = tl(tl(Params)),
+  % 'neighoors' is a list of atoms
   Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, NeighborsList),
   if
     Neighbors == [] ->
@@ -57,7 +58,7 @@ main(Params) ->
   % effectively-unique node name
   net_kernel:start([list_to_atom(NodeName), shortnames]),
   % begin storage service 
-  node_enter(M, NodeName, Neighbors).
+  node_enter(M, Neighbors).
 
 
 %% ====================================================================
@@ -67,12 +68,12 @@ main(Params) ->
 
 % initiate rebalancing and update all nodes
 % when this node enters.
-node_enter(M, NodeName, []) ->
+node_enter(M, []) ->
   TwoToTheM = round(math:pow(2, M)),
   IdPidList = init_storage_processes(M, TwoToTheM, 0),
   % globally regiser each of the 2^m processes
   lists:map(fun({Name, Pid}) -> global:register_name(Name, Pid) end, IdPidList);
-node_enter(M, NodeName, Neighbors) ->
+node_enter(M, Neighbors) ->
   % connect with nodes, assign id, get nodenum list, and update global list.
   {Id, NewNeighbors} = global_processes_update(M, Neighbors).
 
@@ -109,13 +110,14 @@ init_storage_processes(M, TwoToTheM, Id) ->
 % %% assign unique node number.
 global_processes_update(M, Neighbors) ->
   Neighbor = hd(Neighbors),
-  case net_kernel:connect_node(list_to_atom("node1@Js-MacBook-Pro-8")) of
+  case net_kernel:connect_node(Neighbor) of
     true ->
-      println("Connected to neighbor ~p", [Neighbor]);
+      println("Connected to the neighbor ~p", [Neighbor]),
+      NeighborsNames = global:registered_names(),
+      println("List of registered names is empty: ~p", [NeighborsNames == []]);
     false ->
       println("Could not connect to neighbor ~p", [Neighbor])
   end,
-  println("~p", [global:registered_names() == []]),
   {1,2}.
   % case net_kernel:connect_node(Neighbor) of 
   %   true -> println("Connected to neighbor ~p~n", [Neighbor]), 

@@ -5,7 +5,7 @@
 %% @doc _D157R18U73_
 -module(storage_process).
 
--import(key_value_node_temp, [print/1, print/2]).
+-import(key_value_node_temp, [println/1, println/2]).
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
@@ -35,7 +35,7 @@ storage_serve(M, Id, Neighbors, Storage) ->
   register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
   receive 
     {Pid, Ref, store, Key, Value} ->
-      print("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),  
+      println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),  
       case hash(Key, M) == Id of
         % operation to be done at this process
         true ->
