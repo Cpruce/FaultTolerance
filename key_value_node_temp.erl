@@ -47,7 +47,9 @@ main(Params) ->
   Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, NeighborsList),
   if
     Neighbors == [] ->
-      println("This node has no neighbors. It must be the first node.")
+      println("This node has no neighbors. It must be the first node.");
+    true ->
+      println("Neighbors = ~p", [Neighbors])
   end,
   % IMPORTANT: Start the epmd daemon!
   os:cmd("epmd -daemon"),
@@ -57,31 +59,32 @@ main(Params) ->
   % begin storage service 
   node_enter(M, NodeName, Neighbors).
 
+
+%% ====================================================================
+%%                           Node Functions
+%% ====================================================================
+
+
 % initiate rebalancing and update all nodes
 % when this node enters.
-%node_enter(M, NodeName, []) ->
-  % first node. create all 2^M storage processes
-  % IdPidList = init_storage_processes(math:pow(2, M), 0),
-  %{0, IdPidList}.
-%  {0, []}.
-
-node_enter(M, NodeName, Neighbors) ->
+node_enter(M, NodeName, []) ->
   TwoToTheM = round(math:pow(2, M)),
-  case Neighbors of
-      [] ->
-        % first node. create all 2^M storage processes, starting with id 0.
-        IdPidList = init_storage_processes(M, TwoToTheM, 0),
-        ok;
-      _ -> ok
-  end.
-
+  IdPidList = init_storage_processes(M, TwoToTheM, 0),
+  % globally regiser each of the 2^m processes
+  lists:map(fun({Name, Pid}) -> global:register_name(Name, Pid) end, IdPidList);
+node_enter(M, NodeName, Neighbors) ->
   % connect with nodes, assign id, get nodenum list, and update global list.
-  % {Id, Neighbors} = global_processes_update(M, [list_to_atom(Neighbor)]),
-  
+  {Id, NewNeighbors} = global_processes_update(M, Neighbors).
+
+
+
   % (module, name, args)
   % Pid = spawn(advertise_id, advertise_id, [Id, NodeName]),
   % ok.
 
+%% ====================================================================
+%%                       Storage Process Functions
+%% ====================================================================
 
 %% Case: if this node is the first node
 %% init storage processes. return tuple list of Ids with Pid's
@@ -89,9 +92,10 @@ init_storage_processes(0, _, _Id) -> [];
 init_storage_processes(M, TwoToTheM, TwoToTheM) -> [];
 init_storage_processes(M, TwoToTheM, Id) ->
   % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
-  Neighbors = [ Id + round(math:pow(2, K)) || K <-lists:seq(0, M - 1)],
+  Neighbors = [Id + round(math:pow(2, K)) || K <-lists:seq(0, M - 1)],
   println("Spawning a storage process with id = ~p...", [Id]),
-  println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
+  println("Storage process ~p's neighbors will be the following: ~s",
+    [Id, pretty_print_list_of_nums(Neighbors)]),
   % spawn's arguments are: Module, Function, Args
   Pid = spawn(storage_process_temp, storage_serve, [M, Id, Neighbors, []]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
@@ -102,18 +106,29 @@ init_storage_processes(M, TwoToTheM, Id) ->
 % %% get and update global list of registered processes 
 % %% from the one other known neighbor, connect, and
 % %% assign unique node number.
-% global_processes_update(M, [Neighbor]) ->
-%   case net_kernel:connect_node(Neighbor) of 
-%     true -> print("Connected to neighbor ~p~n", [Neighbor]), 
-%       % Neighbors = reg_connect(global:registered_names() -- Neighbor, [], M),
-%       % NodeId = assign_id(math:pow(2, M), Neighbors),
-%       {0, []};
-%       %{Id, Neighbors};
-%     false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
-%       {0, []} 
-%   end.
+global_processes_update(M, Neighbors) ->
+  Neighbor = hd(Neighbors),
+  case net_kernel:connect_node(list_to_atom("node1@Js-MacBook-Pro-8")) of
+    true ->
+      println("Connected to neighbor ~p", [Neighbor]);
+    false ->
+      println("Could not connect to neighbor ~p", [Neighbor])
+  end,
+  println("~p", [global:registered_names() == []]),
+  {1,2}.
+  % case net_kernel:connect_node(Neighbor) of 
+  %   true -> println("Connected to neighbor ~p~n", [Neighbor]), 
+  %     % Neighbors = reg_connect(global:registered_names() -- Neighbor, [], M),
+  %     % NodeId = assign_id(math:pow(2, M), Neighbors),
+  %     {0, []};
+  %     %{Id, Neighbors};
+  %   false -> println("Could not connect to neighbor ~p~n", [Neighbor]),
+  %     {0, []} 
+  % end.
 
-
+%% ====================================================================
+%%                       Pretty Print Functions
+%% ====================================================================
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->
   if Number < 10 ->
@@ -157,3 +172,11 @@ print(To_Print) ->
 % print/2
 print(To_Print, Options) ->
   io:format(get_formatted_time() ++ ": " ++ To_Print, Options).
+
+
+% pretty_print_list_of_nums/1
+% The parameter is a list L. If L = [1, 2, 3], it returns "[1, 2, 3]".
+pretty_print_list_of_nums(L) ->
+    StringList = lists:map(fun(Num) -> integer_to_list(Num) end, L),
+    "[" ++ string:join(StringList, ", ") ++ "]".
+
