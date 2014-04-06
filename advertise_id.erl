@@ -7,33 +7,50 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([main/1]).
+
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
 %% ====================================================================
 %%                            Main Function
 %% ====================================================================
-% The main/1 function.
-main(Params) ->
-      % try
-      % The first parameter is the Id, the unique identifier of the NODE
-      Id = hd(Params),
-      % The second parameter is the registered name of the node   
-      [NodeName] = tl(Params), 
-      register(lists:flatten(io_lib:format("advertising_~p", [NodeName])), self()),
-      % begin advertising service 
-      advertise(Id, NodeName),
-      halt().
+%% register and advertise the storage node
+init(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
+	register(NodeName, self()),
+	advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM).
 
-%% wait for any Id queries
-advertise(Id, _NodeName)->
+%% wait for any Id, rebalancing, or neighbors list queries
+advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 	receive
 		{RetNode, id} ->
 			print("Received Id request from ~p~n", [RetNode]),
-			RetNode ! {self(), Id}
+			RetNode ! {self(), Id},
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
+		{RetNode, nodes_list} ->
+			print("Received NodeList request from ~p~n", [RetNode]),
+			RetNode ! {NodeName, Neighbors},
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
+		{RetNode, rebalance, {NewNode, NewId, NewPid}} ->
+			print("Received rebalance request from ~p~n", [RetNode]),
+			LentProcs = lend_procs(StorageProcs, {NewNode, NewId, NewPid}),
+			advertise(Id, NodeName, Neighbors++[{NewNode, NewIdm NewPid}], StorageProcs--LentProcs, TwoToTheM)
+			ok	
+
 	end.	
 
+%% remove highest numbered process from list.
+%% tell it to exit.
+select_hi_proc([], High)-> High;  
+select_hi_proc([{IdN, PidN},StorageProcs], {Id, Pid})->
+	case IdN > Id of 
+		true -> 
+			select_hi_proc(StorageProcs, {IdN, PidN});
+		false ->
+			select_hi_proc(StorageProcs, {Id, Pid})
+	end.
+%% take the higher numbered processes to give
+lend_procs(StorageProcs, Lent, {Node, Id, Pid})->
+	%Node ! lend down to the Id 
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->
