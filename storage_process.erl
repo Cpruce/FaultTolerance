@@ -5,7 +5,7 @@
 %% @doc _D157R18U73_
 -module(storage_process).
 
--import(key_value_node_temp, [println/1, println/2]).
+-import(key_value_node, [println/1, println/2]).
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
