@@ -7,7 +7,7 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
-
+-export([init/5]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -32,10 +32,9 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
 		{RetNode, rebalance, {NewNode, NewId, NewPid}} ->
 			print("Received rebalance request from ~p~n", [RetNode]),
-			LentProcs = lend_procs(StorageProcs, {NewNode, NewId, NewPid}),
-			advertise(Id, NodeName, Neighbors++[{NewNode, NewIdm NewPid}], StorageProcs--LentProcs, TwoToTheM)
-			ok	
-
+			%LentProcs = lend_procs(StorageProcs, {NewNode, NewId, NewPid}),
+			%advertise(Id, NodeName, Neighbors++[{NewNode, NewId, NewPid}], StorageProcs--LentProcs, TwoToTheM),			
+	ok	
 	end.	
 
 %% remove highest numbered process from list.
@@ -49,7 +48,7 @@ select_hi_proc([{IdN, PidN},StorageProcs], {Id, Pid})->
 			select_hi_proc(StorageProcs, {Id, Pid})
 	end.
 %% take the higher numbered processes to give
-lend_procs(StorageProcs, Lent, {Node, Id, Pid})->
+%lend_procs(StorageProcs, Lent, {Node, Id, Pid})->
 	%Node ! lend down to the Id 
 
 % Helper functions for timestamp handling.

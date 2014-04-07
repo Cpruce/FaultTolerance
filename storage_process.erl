@@ -9,13 +9,18 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([storage_serve/4]).
+-export([init/4]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
 %% ====================================================================
 %%                            Main Function
 %% ====================================================================
+
+init(M, Id, Neighbors, Storage)->
+  	register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
+	storage_serve(M, Id, Neighbors, Storage). 
+
 
 %% find neighbor by Id
 find_neighbor([], _Id) -> [];
@@ -32,23 +37,26 @@ find_neighbor(Neighbors, Id)->
 %% primary storage service function; handles
 %% general communication and functionality.
 storage_serve(M, Id, Neighbors, Storage) ->
-  register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
   receive 
     {Pid, Ref, store, Key, Value} ->
-      println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),  
+      println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Ref]),  
       case hash(Key, M) == Id of
         % operation to be done at this process
         true ->
           % save old value, replace it, and send message back
           Oldval = dict:fetch(Key, Storage),
           NewStore = dict:store(Key, Value, Storage),
-          Pid ! {self(), stored, Oldval};
+	  println("Hash evaluated to Id, stored locally. Sending stored to ~p~n", [Ref]),
+	  Pid ! {self(), stored, Oldval},
+	  storage_serve(M, Id, Neighbors, NewStore);
         % pass on computation
         false ->
           % find and send to correct recipient
-          Recv = find_neighbor(Neighbors, Id),    %% ADD IN ONLY IF 'i + 2^k'
-          Recv ! {Pid, self(), store, Key, Value}
-      end;
+          Recv = find_neighbor(Neighbors, Id),
+	  println("Passing store message onto ~p~n", [Recv]), 
+          Recv ! {Pid, self(), store, Key, Value},
+       	  storage_serve(M, Id, Neighbors, Storage)
+	end;
     {Ref, stored, Oldval} -> ok;
     {Pid, Ref, retrieve, Key} -> ok;
     {Ref, retrieved, Value} -> ok;

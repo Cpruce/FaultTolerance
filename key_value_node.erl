@@ -5,8 +5,8 @@
 %% @doc _D157R18U73_
 -module(key_value_node).
 
--import(storage_process, [storage_serve/4]).
--import(advertise_id, [advertise/1]).
+-import(storage_process, [init/4]).
+-import(advertise_id, [init/5]).
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
@@ -66,14 +66,14 @@ node_enter(M, NodeName, Neighbors) ->
       [] ->
         % first node. create all 2^M storage processes, starting with id 0.
         StorageProcs = init_storage_processes(M, TwoToTheM, 0),
-	Pid = spawn(advertise_id, advertise, [0, NodeName, [], StorageProcs, TwoToTheM]),
+	Pid = spawn(advertise_id, init, [0, NodeName, [], StorageProcs, TwoToTheM]),
 	ok;
       [Neighbor] ->
 	% contact known neighbor to get list of everyone.
         % assign id and balance load. End with advertising,	
-	{Id, NewNeighbors} = global_processes_update(TwoToTheM, Neighbor),
+	{Id, NewNeighbors} = global_processes_update(TwoToTheM, Neighbor, NodeName),
 	StorageProcs = enter_load_balance(NewNeighbors, [], TwoToTheM),
-	Pid = spawn(advertise_id, advertise, [Id, NodeName, NewNeighbors, StorageProcs, TwoToTheM]),
+	Pid = spawn(advertise_id, init, [Id, NodeName, NewNeighbors, StorageProcs, TwoToTheM]),
 	ok;
       _ -> ok
   end.
@@ -91,7 +91,7 @@ init_storage_processes(M, TwoToTheM, Id) ->
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
   % spawn's arguments are: Module, Function, Args
-  Pid = spawn(storage_process, storage_serve, [M, Id, Neighbors, []]),
+  Pid = spawn(storage_process, init, [M, Id, Neighbors, []]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [{Id, Pid}] ++ init_storage_processes(M, TwoToTheM, Id + 1). 
 
@@ -110,22 +110,22 @@ global_processes_update(TwoToTheM, [Neighbor], NodeName) ->
    end.
 
 %% gets global list of {Node, Id, Pid}'s
-get_global_list(NeighborsNames, Neighbor, NodeName)->
-	print("Sending request to ~p for the node list~n", [Neighbor]),
-	Neighbor ! {NodeName, nodes_list},
-	receive
-		{RetNode, ret_node_list, NodeList} ->
+%get_global_list(NeighborsNames, Neighbor, NodeName)->
+%	print("Sending request to ~p for the node list~n", [Neighbor]),
+%	Neighbor ! {NodeName, nodes_list},
+%	receive
+%		{RetNode, ret_node_list, NodeList} ->
 
 
 %% compute furtherest distance between any two node ids
-calc_furtherest_dist([], {{Name, Id, Pid},X})-> {{Name, Id, Pid},X});
-calc_furtherest_dist([{NameN, IdN, PidN}, Neighbors], {{Name, Id, Pid},X})->
-	case math:abs(IdN-Id)>X of
-		true ->
-			Ret = math:abs(IdN - Id),
-		        case (IdN-Id)<0 of 	
-				true -> calc_furtherest_dist(Neighbors, {NameN, IdN, PidN, Ret});
-	        false ->
+%calc_furtherest_dist([], {{Name, Id, Pid},X})-> {{Name, Id, Pid},X});
+%calc_furtherest_dist([{NameN, IdN, PidN}, Neighbors], {{Name, Id, Pid},X})->
+%	case math:abs(IdN-Id)>X of
+%		true ->
+%			Ret = math:abs(IdN - Id),
+%		        case (IdN-Id)<0 of 	
+%				true -> calc_furtherest_dist(Neighbors, {NameN, IdN, PidN, Ret});
+%	        false ->
 				
 
 % Helper functions for timestamp handling.
