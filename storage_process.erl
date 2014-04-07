@@ -43,9 +43,12 @@ backup_neighbors([IdN, Neighbors]) ->
 	RecvNeigh ! {self(), retrieve, IdN},
 	receive 
 	 {_Ref, retrieve, Value} ->
+		% create backup
 		println("Backing up ~p for ~p~n", [Value, RecvNeigh]),
 		NewDict = dict:new(),
 		RetDict = dict:store(IdN, Value, NewDict),
+		% monitor to see if backup needs to register
+		monitor_neighbor(RecvNeigh, self()), 
 		backup_neighbors(Neighbors)++[RetDict];
 
 	 {_Ref, failure} ->
@@ -136,17 +139,53 @@ storage_serve(M, Id, Neighbors, Storage, Backups) ->
     	{Ref, result, Result} -> 
 		storage_serve(M, Id, Neighbors, Storage, Backups);
     
-    	{Ref, failure} -> 
+    	{Pid, rebalance, {NewNode, NewId, NewPid}} ->
+			println("Received rebalance request from ~p~n", [Pid]),
+			%LentProcs = lend_procs(StorageProcs, {NewNode, NewId, NewPid}),
+			%advertise(Id, NodeName, Neighbors++[{NewNode, NewId, NewPid}], StorageProcs--LentProcs, TwoToTheM),			
+	ok;
+	{Ref, failure} -> 
 		println("Node crashed during computation. failure.~n"),
 	  	storage_serve(M, Id, Neighbors, Storage, Backups)
   end.
 
-%% hash function to uniformly distribute among 
+%%% remove highest numbered process from list.
+%% tell it to exit.
+select_hi_proc([], High)-> High;  
+select_hi_proc([{IdN, PidN},StorageProcs], {Id, Pid})->
+	case IdN > Id of 
+		true -> 
+			select_hi_proc(StorageProcs, {IdN, PidN});
+		false ->
+			select_hi_proc(StorageProcs, {Id, Pid})
+	end.
+%% take the higher numbered processes to give
+%lend_procs(StorageProcs, Lent, {Node, Id, Pid})->
+	%Node ! lend down to the Id 
+
+% hash function to uniformly distribute among 
 %% storage processes.
 hash(Str, M) when M >= 0 -> str_sum(Str) rem (math:pow(2, M));
 hash(_, _) -> -1.   %% error if no storage
       %% processes are open.
 
+% Constantly query neighbor philosophers to make sure that they are still
+% there. If one is gone, delete fork to that philosopher and remove from
+% neighbors list, sufficiently removing the edge. Otherwise, keep
+% philosophizing.
+check_neighbors([], _)-> ok;
+check_neighbors([X|XS], ParentPid) ->
+	    spawn(fun() -> monitor_neighbor(X, ParentPid) end),
+	    check_neighbors(XS, ParentPid).
+monitor_neighbor(Name, ParentPid) -> 
+	erlang:monitor(process,{backup, Name}), %{RegName, Node}
+	receive
+		{'DOWN', _Ref, process, _Pid, normal} ->
+			ParentPid ! {self(), check, Name};
+		{'DOWN', _Ref, process, _Pid, _Reason} ->
+			ParentPid ! {self(), missing, Name}
+	end.
+      
 %% sum digits in string
 str_sum([]) -> 0;
 str_sum([X|XS]) -> $X + str_sum(XS).

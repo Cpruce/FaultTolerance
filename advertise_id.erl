@@ -29,27 +29,9 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 		{RetNode, nodes_list} ->
 			print("Received NodeList request from ~p~n", [RetNode]),
 			RetNode ! {NodeName, Neighbors},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
-		{RetNode, rebalance, {NewNode, NewId, NewPid}} ->
-			print("Received rebalance request from ~p~n", [RetNode]),
-			%LentProcs = lend_procs(StorageProcs, {NewNode, NewId, NewPid}),
-			%advertise(Id, NodeName, Neighbors++[{NewNode, NewId, NewPid}], StorageProcs--LentProcs, TwoToTheM),			
-	ok	
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)
+	
 	end.	
-
-%% remove highest numbered process from list.
-%% tell it to exit.
-select_hi_proc([], High)-> High;  
-select_hi_proc([{IdN, PidN},StorageProcs], {Id, Pid})->
-	case IdN > Id of 
-		true -> 
-			select_hi_proc(StorageProcs, {IdN, PidN});
-		false ->
-			select_hi_proc(StorageProcs, {Id, Pid})
-	end.
-%% take the higher numbered processes to give
-%lend_procs(StorageProcs, Lent, {Node, Id, Pid})->
-	%Node ! lend down to the Id 
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->
