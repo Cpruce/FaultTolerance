@@ -19,7 +19,8 @@
 
 init(M, Id, Neighbors, Storage)->
   	register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
-	storage_serve(M, Id, Neighbors, Storage). 
+	Backups = backup_neighbors(Neighbors),
+	storage_serve(M, Id, Neighbors, Storage, Backups). 
 
 
 %% find neighbor by Id
@@ -34,38 +35,110 @@ find_neighbor(Neighbors, Id)->
       find_neighbor(tl(Neighbors), Id)
   end.
 
+%% backup neighbors in the ring
+backup_neighbors([]) -> [];
+backup_neighbors([IdN, Neighbors]) -> 
+	RecvNeigh = list_to_atom("StorageProcess"++IdN),
+	println("Sending backup request to ~p~n", [RecvNeigh]),
+	RecvNeigh ! {self(), retrieve, IdN},
+	receive 
+	 {_Ref, retrieve, Value} ->
+		println("Backing up ~p for ~p~n", [Value, RecvNeigh]),
+		NewDict = dict:new(),
+		RetDict = dict:store(IdN, Value, NewDict),
+		backup_neighbors(Neighbors)++[RetDict];
+
+	 {_Ref, failure} ->
+		println("Neighbor ~p crashed. Moving on.~n", [IdN]),
+		backup_neighbors(Neighbors)
+	end.
+
 %% primary storage service function; handles
 %% general communication and functionality.
-storage_serve(M, Id, Neighbors, Storage) ->
-  receive 
-    {Pid, Ref, store, Key, Value} ->
-      println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Ref]),  
-      case hash(Key, M) == Id of
-        % operation to be done at this process
-        true ->
-          % save old value, replace it, and send message back
-          Oldval = dict:fetch(Key, Storage),
-          NewStore = dict:store(Key, Value, Storage),
-	  println("Hash evaluated to Id, stored locally. Sending stored to ~p~n", [Ref]),
-	  Pid ! {self(), stored, Oldval},
-	  storage_serve(M, Id, Neighbors, NewStore);
-        % pass on computation
-        false ->
-          % find and send to correct recipient
-          Recv = find_neighbor(Neighbors, Id),
-	  println("Passing store message onto ~p~n", [Recv]), 
-          Recv ! {Pid, self(), store, Key, Value},
-       	  storage_serve(M, Id, Neighbors, Storage)
-	end;
-    {Ref, stored, Oldval} -> ok;
-    {Pid, Ref, retrieve, Key} -> ok;
-    {Ref, retrieved, Value} -> ok;
-    {Pid, Ref, first_key} -> ok;
-    {Pid, Ref, last_key} -> ok;
-    {Pid, Ref, num_keys} -> ok;
-    {Pid, Ref, node_list} -> ok;
-    {Ref, result, Result} -> ok;
-    {Ref, failure} -> ok
+storage_serve(M, Id, Neighbors, Storage, Backups) ->
+
+    receive 
+    	{Pid, Ref, store, Key, Value} ->
+      		println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),  
+      		case hash(Key, M) == Id of
+        	% operation to be done at this process
+        		true ->
+          			% save old value, replace it, and send message back
+          			Oldval = dict:fetch(Key, Storage),
+          			NewStore = dict:store(Key, Value, Storage),
+	  			println("Hash evaluated to Id, stored locally. Sending stored to ~p~n", [Pid]),
+	  			Pid ! {Ref, stored, Oldval},
+	  			storage_serve(M, Id, Neighbors, NewStore, Backups);
+        		% pass on computation
+        		false ->
+        			% find and send to correct recipient
+          			Recv = find_neighbor(Neighbors, Id),
+	  			println("Passing store message onto ~p~n", [Recv]), 
+          			Recv ! {Pid, Ref, store, Key, Value},
+       	  			storage_serve(M, Id, Neighbors, Storage, Backups)
+		end;
+    	{Ref, stored, Oldval} -> 
+	       case Oldval == no_value of
+		    true -> 
+			  println("No previously stored value. Store successful~n"),
+			  storage_serve(M, Id, Neighbors, Storage, Backups);
+		    false ->
+			  println("Oldval is ~p~n. Store successful~n", [Oldval]), 
+			  storage_serve(M, Id, Neighbors, Storage, Backups)
+	    end;
+    
+    	{Pid, Ref, retrieve, Key} -> 
+    		println("Received retrieve command at key ~p from ~p~n", [Key, Pid]),  
+      		case hash(Key, M) == Id of
+        	% operation to be done at this process
+        		true ->
+          			Val = dict:fetch(Key, Storage),
+	  			println("Hash evaluated to Id, retrieved locally. Sending retrieved to ~p with the value ~p~n", [Pid, Val]),
+	  			Pid ! {Ref, retrieved, Val},
+	  			storage_serve(M, Id, Neighbors, Storage, Backups);
+        		% pass on computation
+        		false ->
+          			% find and send to correct recipient
+          			Recv = find_neighbor(Neighbors, Id),
+	  			println("Passing retrieve message onto ~p~n", [Recv]), 
+          			Recv ! {Pid, Ref, retrieve, Key},
+       	  			storage_serve(M, Id, Neighbors, Storage, Backups)
+		end;
+    
+     	{Ref, retrieved, Value} -> 
+		case Value == no_value of
+			true -> 
+				println("No previously stored value. Retrieve unsuccessful~n"),
+			  	storage_serve(M, Id, Neighbors, Storage, Backups);
+		    	false ->
+				println("Value is ~p~n. Retrieve successful~n", [Value]), 
+			  	storage_serve(M, Id, Neighbors, Storage, Backups)
+	    	end;
+   
+     	{Pid, Ref, first_key} -> 
+		println("Received first_key request from ~p~n", [Pid]),
+	    	%% do leader election? or snapshot? (pg 5 of hw5.pdf) 
+	    	storage_serve(M, Id, Neighbors, Storage, Backups);
+    
+     	{Pid, Ref, last_key} -> 
+        	println("Received last_key request from ~p~n", [Pid]),
+	    	%% do leader election? or snapshot? (pg 5 of hw5.pdf) 
+	    	storage_serve(M, Id, Neighbors, Storage, Backups); 
+    
+    	{Pid, Ref, num_keys} -> 
+		println("Received num_keys request from ~p~n", [Pid]),
+	    	%% do leader election? or snapshot? (pg 5 of hw5.pdf)  
+	    	storage_serve(M, Id, Neighbors, Storage, Backups);
+    
+    	{Pid, Ref, node_list} ->
+		storage_serve(M, Id, Neighbors, Storage, Backups);
+    
+    	{Ref, result, Result} -> 
+		storage_serve(M, Id, Neighbors, Storage, Backups);
+    
+    	{Ref, failure} -> 
+		println("Node crashed during computation. failure.~n"),
+	  	storage_serve(M, Id, Neighbors, Storage, Backups)
   end.
 
 %% hash function to uniformly distribute among 
