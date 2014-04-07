@@ -6,6 +6,7 @@
 -module(key_value_node_temp).
 
 -import(storage_process, [storage_serve/4]).
+-import(non_storage_process, [run/0]).
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
@@ -46,17 +47,31 @@ main(Params) ->
   NeighborsList = tl(tl(Params)),
   % 'neighoors' is a list of atoms
   Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, NeighborsList),
-  if
-    Neighbors == [] ->
+  case length(Neighbors) of
+    0 ->
       println("This node has no neighbors. It must be the first node.");
-    true ->
-      println("Neighbors = ~p", [Neighbors])
+    1 ->
+      println("Neighbors = ~p", [Neighbors]);
+    _ ->
+      halt("There cannot be more than one neighbor to connect to!")
   end,
   % IMPORTANT: Start the epmd daemon!
   os:cmd("epmd -daemon"),
   % format microseconds of timestamp to get an
   % effectively-unique node name
-  net_kernel:start([list_to_atom(NodeName), shortnames]),
+  case net_kernel:start([list_to_atom(NodeName), shortnames]) of
+    {ok, _Pid} ->
+      println("kernel started successfully with the shortnames " ++ NodeName),
+      println("~p", [node()]);
+    {error, TheReason} ->
+      println("fail to start kernel! intended shortnames: " ++ NodeName),
+      println("Reason: ~p", TheReason)
+  end,
+  % spawn and register a non-storage process, so that the node can be discovered.
+  NonStorageProcessPid = spawn(non_storage_process, run, []),
+  global:register_name("NonStorageProcessAt" ++ NodeName, NonStorageProcessPid),
+  println("Registered a non storage process with name = ~p, PID = ~p",
+    ["NonStorageProcessAt" ++ NodeName, NonStorageProcessPid]),
   % begin storage service 
   node_enter(M, Neighbors).
 
@@ -71,8 +86,11 @@ main(Params) ->
 node_enter(M, []) ->
   TwoToTheM = round(math:pow(2, M)),
   IdPidList = init_storage_processes(M, TwoToTheM, 0),
-  % globally regiser each of the 2^m processes
-  lists:map(fun({Name, Pid}) -> global:register_name(Name, Pid) end, IdPidList);
+  % globally register each of the 2^m processes
+  lists:map(
+    fun({Id, Pid}) -> global:register_name("StorageProcess" ++ integer_to_list(Id), Pid) end,
+    IdPidList
+  );
 node_enter(M, Neighbors) ->
   % connect with nodes, assign id, get nodenum list, and update global list.
   {Id, NewNeighbors} = global_processes_update(M, Neighbors).
@@ -108,10 +126,11 @@ init_storage_processes(M, TwoToTheM, Id) ->
 % %% get and update global list of registered processes 
 % %% from the one other known neighbor, connect, and
 % %% assign unique node number.
-global_processes_update(M, Neighbors) ->
-  Neighbor = hd(Neighbors),
+
+global_processes_update(M, [Neighbor]) ->
   case net_kernel:connect_node(Neighbor) of
     true ->
+      println("node = ~p", [node()]),
       println("Connected to the neighbor ~p", [Neighbor]),
       NeighborsNames = global:registered_names(),
       println("List of registered names is empty: ~p", [NeighborsNames == []]);
@@ -161,20 +180,20 @@ get_formatted_time() ->
 
 % println/1
 % print and add a new line at the end
-println(To_Print) ->
-  print(To_Print ++ "~n").
+println(ToPrint) ->
+  print(ToPrint ++ "~n").
 
 % println/2
-println(To_Print, Options) ->
-  print(To_Print ++ "~n", Options).
+println(ToPrint, Options) ->
+  print(ToPrint ++ "~n", Options).
 
 % print/1
 % includes system time.
-print(To_Print) ->
-  io:format(get_formatted_time() ++ ": " ++ To_Print).
+print(ToPrint) ->
+  io:format(get_formatted_time() ++ ": " ++ ToPrint).
 % print/2
-print(To_Print, Options) ->
-  io:format(get_formatted_time() ++ ": " ++ To_Print, Options).
+print(ToPrint, Options) ->
+  io:format(get_formatted_time() ++ ": " ++ ToPrint, Options).
 
 
 % pretty_print_list_of_nums/1
