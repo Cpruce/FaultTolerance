@@ -22,16 +22,24 @@ init(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 %% wait for any Id, rebalancing, or neighbors list queries
 advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 	receive
-		{RetNode, id} ->
-			print("Received Id request from ~p~n", [RetNode]),
-			RetNode ! {self(), Id},
+		{Pid, id} ->
+			print("Received Id request from ~p~n", [Pid]),
+			Pid ! {self(), Id},
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
-		{RetNode, nodes_list} ->
-			print("Received NodeList request from ~p~n", [RetNode]),
-			RetNode ! {NodeName, Neighbors},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)
-	
+		{Pid, node_list} ->
+			print("Received NodeList request from ~p~n", [Pid]),
+			Pid ! {self(), Neighbors},
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
+		{Pid, snapshot} ->
+			% take snapshot in response to command
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);	
+		{Pid, snapshot_over} ->
+			%% snapshot is over. Have some result?
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)		
 	end.	
+
+%% initiate snapshot if initiator
+%%init_snapshot
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->
