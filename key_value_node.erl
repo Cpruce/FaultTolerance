@@ -71,15 +71,26 @@ node_enter(M, NodeName, Neighbors) ->
       [Neighbor] ->
 	% contact known neighbor to get list of everyone.
         % assign id and balance load. End with advertising,	
-	{Id, NodeList} = global_processes_update(TwoToTheM, Neighbor, NodeName),
-	StorageProcs = enter_load_balance(Id, NodeList, [], TwoToTheM),
-	_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM]),
+	{Id, PrevId, NextId, NodeList} = global_processes_update(TwoToTheM, Neighbor, NodeName),
+	case PrevId == -1 of
+	       true -> 
+	       		StorageProcs = init_storage_processes(M, NodeName, TwoToTheM, 0),
+			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM]);
+	       false ->
+			StorageProcs = enter_load_balance(Id, PrevId, NextId, [], TwoToTheM),
+			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM])
+	end,
 	ok;
       _ -> ok
   end.
 
+
 %% retreive storage processes from other nodes
-enter_load_balance(Id, NodeList, Storage_Procs, TwoToTheM)->
+enter_load_balance(Id, PrevId, NextId, Storage_Procs, TwoToTheM)->
+	% send message to node with Id PrevId to get 
+	% storage processes [Id, NextId] including Id and 
+	% excluding NextId
+	
 	ok.
 
 %% Case: if this node is the first node
@@ -104,10 +115,10 @@ global_processes_update(TwoToTheM, [Neighbor], NodeName) ->
      true -> print("Connected to neighbor ~p~n", [Neighbor]), 
        NeighborsNames = global:registered_names(),
        NodeList = lists:sort(get_global_list(NeighborsNames, Neighbor, NodeName)),
-       Id = assign_id(hd(NodeList), tl(NodeList), {-1, 0}, TwoToTheM),
-       {Id, NodeList};
+       {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {-1, 0, -1}, TwoToTheM),
+       {Id, PrevId, NextId, NodeList};
      false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
-       {0, []} 
+       {0, -1, -1, []} 
    end.
 
 %% gets global list of {Node, Id, Pid}'s
@@ -128,25 +139,25 @@ get_global_list(NeighborsNames, Neighbor, NodeName)->
 %% two Id's. NewId is half the greatest distance plus the 
 %% lower of the two Id's, mod 2^M.
 %% Assumption: NodeList is sorted.
-assign_id(_Hd, [], {Id,X}, TwoToTheM)-> 
-	(Id + (X div 2)) rem TwoToTheM;
-assign_id(Hd, [IdN], {Id, X}, TwoToTheM)->
+assign_id(_Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
+	{(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId};
+assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
 	% difference between last elem and the head
 	% only non-increasing difference (mod 2^M)
 	Dif = TwoToTheM - (IdN - Hd), 
         case Dif > X of
 		true ->
-			(IdN + (Dif div 2)) rem TwoToTheM;
+			{(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
 		false ->
-			(Id + (X div 2)) rem TwoToTheM
+			{(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
 	end;	
-assign_id(Hd, [IdM, IdN, NodeList], {Id, X}, TwoToTheM)->
+assign_id(Hd, [IdM, IdN, NodeList], {PrevId, X, NextId}, TwoToTheM)->
 	Dif = IdN - IdM, % Id's are now guaranteed to be increasing
 	case Dif > X of
 		true -> 
-			assign_id(Hd, [IdN]++NodeList, {IdM, Dif}, TwoToTheM);
+			assign_id(Hd, [IdN]++NodeList, {IdM, Dif, IdN}, TwoToTheM);
 		false ->
-			assign_id(Hd, [IdN]++NodeList, {Id, X}, TwoToTheM)
+			assign_id(Hd, [IdN]++NodeList, {PrevId, X, NextId}, TwoToTheM)
 	end.
 
 % Helper functions for timestamp handling.
