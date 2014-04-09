@@ -7,7 +7,7 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([init/5]).
+-export([init_adv/5, init_snapshot/2]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -15,45 +15,66 @@
 %%                            Main Function
 %% ====================================================================
 %% register and advertise the storage node
-init(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
+init_adv(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 	register(NodeName, self()),
-	advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM).
+	advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive).
 
 %% wait for any Id, rebalancing, or neighbors list queries
-advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
+advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
 	receive
 		{Pid, id} ->
 			print("Received Id request from ~p~n", [Pid]),
 			Pid ! {self(), Id},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive);
 		{Pid, node_list} ->
 			print("Received NodeList request from ~p~n", [Pid]),
 			Pid ! {self(), Neighbors},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
-		{Pid, snapshot, ToGet, NewBackups} ->
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive);
+		{Pid, snapshot, ToGet, SnapshotList} ->
 			% snapshot, 1st round. Each storage process in chord records its state
 			
 			% pass message onto stor_procs and create list 
 			% of 
-			%  = get_backups(StorageProcs),
-			
+			Snapshot  = snapshot(StorageProcs),
 			% pass 1st round snapshot message along
-			hd(ToGet) ! {self(), snapshot, tl(ToGet)},
+			hd(ToGet) ! {self(), snapshot, tl(ToGet), [SnapshotList, Snapshot]},
 			
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);	
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot)
+	end;
+advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot)->
+	receive
+		{Pid, id} ->
+			print("Received Id request from ~p~n", [Pid]),
+			Pid ! {self(), Id},
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot);
+		{Pid, node_list} ->
+			print("Received NodeList request from ~p~n", [Pid]),
+			Pid ! {self(), Neighbors},
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot);
 		{Pid, snapshot_over, ToGet, NewBackups} ->
-			% snapshot, 2nd round. Each storage process updates its backups
-			
+			% snapshot, 2nd round. Each storage process updates its backups	
 			% update backups
 			
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)		
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)		
+	end;
+advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, initiator)->
+	receive
+		{Pid, id} ->
+			print("Received Id request from ~p~n", [Pid]),
+			Pid ! {self(), Id},
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, initiator);
+		{Pid, node_list} ->
+			print("Received NodeList request from ~p~n", [Pid]),
+			Pid ! {self(), Neighbors},
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, initiator);
+		{Pid, snapshot, ToGet, SnapshotList} ->
+			% snapshot over, pass results around
+			hd(Neighbors) ! {self(), snapshot_over, tl(Neighbors), SnapshotList},
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)	
 	end.	
 
-
-
-
 %% initiate snapshot if initiator
-%%init_snapshot
+init_snapshot(Neighbors, StorageProcs) -> ok.
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->

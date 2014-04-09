@@ -75,7 +75,9 @@ node_enter(M, NodeName, Neighbors) ->
 	case PrevId == -1 of
 	       true -> 
 	       		StorageProcs = init_storage_processes(M, NodeName, TwoToTheM, 0),
-			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM]);
+			% node non-storage process can only talk to the local node's storage procs, and the non-storage processes of the nodes that have the storage procs neighbors
+			NodeNeighbors = prune_neighbors(NodeList, StorageProcs, 0, TwoToTheM, []),
+			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeNeighbors, StorageProcs, TwoToTheM]);
 	       false ->
 			StorageProcs = enter_load_balance(Id, PrevId, NextId, [], TwoToTheM),
 			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM])
@@ -83,6 +85,34 @@ node_enter(M, NodeName, Neighbors) ->
 	ok;
       _ -> ok
   end.
+
+%% auxiliary function to get node that 
+%% storage process is on
+get_node([IdN], StoreProcId)-> IdN;
+get_node([IdM, IdN, NodeList], StoreProcId)->
+	case (StoreProcId >= IdM) and (StoreProcId < IdN) of 
+		true ->
+			IdM;
+		false ->
+			get_node([IdN, NodeList], StoreProcId)
+	end.
+
+%% prune neighbors to only be Ids of nodes that
+%% have StorageProcs neighbors 
+prune_neighbors([], _, _, _TwoToTheM, Pruned)-> Pruned;
+prune_neighbors(_, [], _, _TwoToTheM, Pruned)-> Pruned;
+prune_neighbors(NodeList, StorageProcs, TwoToTheM, TwoToTheM, Pruned)-> 
+	prune_neighbors(NodeList, tl(StorageProcs), 0, TwoToTheM, Pruned);
+prune_neighbors(NodeList, StorageProcs, K, TwoToTheM, Pruned)->
+	NodeId = get_node(NodeList, (hd(StorageProcs) + round(math:pow(2, K))) rem TwoToTheM),   
+	% want to keep a distinct list of neighbor nodes
+	case lists:member(NodeId, Pruned) of 
+		true -> 
+			prune_neighbors(NodeList, StorageProcs, K+1, TwoToTheM, Pruned);
+		false -> 
+			prune_neighbors(NodeList, StorageProcs, K+1, TwoToTheM, [NodeId]++Pruned)
+	end.
+	
 %% retreive storage processes from other nodes
 enter_load_balance(Id, PrevId, NextId, Storage_Procs, TwoToTheM)->
 	% send message to node with Id PrevId to get 

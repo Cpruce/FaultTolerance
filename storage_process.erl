@@ -6,10 +6,11 @@
 -module(storage_process).
 
 -import(key_value_node, [println/1, println/2]).
+-import(advertise_id, [init_snapshot/2]).
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([init/5]).
+-export([init_store/5]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -17,7 +18,7 @@
 %%                            TwoToTheMain Function
 %% ====================================================================
 
-init(TwoToTheM, NodeName, Id, Neighbors, Storage)->
+init_store(TwoToTheM, NodeName, Id, Neighbors, Storage)->
   	register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
 	Backups = backup_neighbors(Neighbors),
 	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups). 
