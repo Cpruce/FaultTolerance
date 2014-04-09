@@ -89,12 +89,12 @@ node_enter(M, NodeName, Neighbors) ->
 %% auxiliary function to get node that 
 %% storage process is on
 get_node([IdN], StoreProcId)-> IdN;
-get_node([IdM, IdN, NodeList], StoreProcId)->
+get_node([IdM, IdN | NodeList], StoreProcId)->
 	case (StoreProcId >= IdM) and (StoreProcId < IdN) of 
 		true ->
 			IdM;
 		false ->
-			get_node([IdN, NodeList], StoreProcId)
+			get_node([IdN | NodeList], StoreProcId)
 	end.
 
 %% prune neighbors to only be Ids of nodes that
@@ -179,7 +179,7 @@ assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
 		false ->
 			{(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
 	end;	
-assign_id(Hd, [IdM, IdN, NodeList], {PrevId, X, NextId}, TwoToTheM)->
+assign_id(Hd, [IdM, IdN | NodeList], {PrevId, X, NextId}, TwoToTheM)->
 	Dif = IdN - IdM, % Id's are now guaranteed to be increasing
 	case Dif > X of
 		true -> 

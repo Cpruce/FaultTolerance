@@ -38,7 +38,7 @@ find_neighbor(Neighbors, Id)->
 
 %% backup neighbors in the ring
 backup_neighbors([]) -> [];
-backup_neighbors([IdN, Neighbors]) -> 
+backup_neighbors([IdN | Neighbors]) -> 
 	RecvNeigh = list_to_atom("StorageProcess"++integer_to_list(IdN)),
 	println("Sending backup request to ~p~n", [RecvNeigh]),
 	RecvNeigh ! {self(), backup_request},
@@ -60,7 +60,7 @@ backup_neighbors([IdN, Neighbors]) ->
 storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups) ->
 
     receive 
-    	{Pid, Ref, store, Key, Value} ->
+    	{Pid, _Ref, store, Key, Value} ->
       		println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),  
       		case hash(Key, TwoToTheM) == Id of
         	% operation to be done at this process
@@ -69,7 +69,7 @@ storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups) ->
           			Oldval = dict:fetch(Key, Storage),
           			NewStore = dict:store(Key, Value, Storage),
 	  			println("Hash evaluated to Id, stored locally. Sending stored to ~p~n", [Pid]),
-	  			Pid ! {Ref, stored, Oldval},
+	  			Pid ! {_Ref, stored, Oldval},
 	  			storage_serve(TwoToTheM, NodeName, Id, Neighbors, NewStore, Backups);
         		% pass on computation
         		false ->
@@ -77,10 +77,10 @@ storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups) ->
           			RecvId = find_neighbor(Neighbors, Id),
 				Recv = list_to_atom("StorageProcess"++integer_to_list(RecvId)),
 				println("Passing store message onto ~p~n", [Recv]), 
-          			Recv ! {Pid, Ref, store, Key, Value},
+          			Recv ! {Pid, _Ref, store, Key, Value},
        	  			storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups)
 		end;
-    	{Ref, stored, Oldval} -> 
+    	{_Ref, stored, Oldval} -> 
 	       case Oldval == no_value of
 		    true -> 
 			  println("No previously stored value. Store successful~n"),
@@ -90,25 +90,25 @@ storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups) ->
 			  storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups)
 	    end;
     
-    	{Pid, Ref, retrieve, Key} -> 
+    	{Pid, _Ref, retrieve, Key} -> 
     		println("Received retrieve command at key ~p from ~p~n", [Key, Pid]),  
       		case hash(Key, TwoToTheM) == Id of
         	% operation to be done at this process
         		true ->
           			Val = dict:fetch(Key, Storage),
 	  			println("Hash evaluated to Id, retrieved locally. Sending retrieved to ~p with the value ~p~n", [Pid, Val]),
-	  			Pid ! {Ref, retrieved, Val},
+	  			Pid ! {_Ref, retrieved, Val},
 	  			storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
         		% pass on computation
         		false ->
           			% find and send to correct recipient
           			Recv = find_neighbor(Neighbors, Id),
 	  			println("Passing retrieve message onto ~p~n", [Recv]), 
-          			Recv ! {Pid, Ref, retrieve, Key},
+          			Recv ! {Pid, _Ref, retrieve, Key},
        	  			storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups)
 		end;
     
-     	{Ref, retrieved, Value} -> 
+     	{_Ref, retrieved, Value} -> 
 		case Value == no_value of
 			true -> 
 				println("No previously stored value. Retrieve unsuccessful~n"),
@@ -118,28 +118,29 @@ storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups) ->
 			  	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups)
 	    	end;
    
-     	{Pid, Ref, first_key} -> 
+     	{Pid, _Ref, first_key} -> 
 		println("Received first_key request from ~p~n", [Pid]),
 	    	%% do leader election? or snapshot? (pg 5 of hw5.pdf) 
 	    	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
     
-     	{Pid, Ref, last_key} -> 
+     	{Pid, _Ref, last_key} -> 
         	println("Received last_key request from ~p~n", [Pid]),
 	    	%% do leader election? or snapshot? (pg 5 of hw5.pdf) 
 	    	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups); 
     
-    	{Pid, Ref, num_keys} -> 
+    	{Pid, _Ref, num_keys} -> 
 		println("Received num_keys request from ~p~n", [Pid]),
 	    	%% do leader election? or snapshot? (pg 5 of hw5.pdf)  
 	    	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
     
-    	{Pid, Ref, node_list} ->
+    	{Pid, _Ref, node_list} ->
 		println("Received node_list request from ~p~n", [Pid]),
 		NodeName ! {self(), node_list},
 		storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
     
-    	{Ref, result, Result} -> 
-		storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
+    	{_Ref, result, Result} -> 
+            println("Obtained result ~p~n", [Result]),
+            storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
     
     	{Pid, rebalance, {NewNode, NewId, NewPid}} ->
 			println("Received rebalance request from ~p~n", [Pid]),
@@ -152,7 +153,7 @@ storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups) ->
 		Pid ! {self(), backup_response, Storage},
 		storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
 
-	{Ref, failure} -> 
+	{_Ref, failure} -> 
 		println("Node crashed during computation. failure.~n"),
 	  	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups)
   end.
@@ -160,7 +161,7 @@ storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups) ->
 %%% remove highest numbered process from list.
 %% tell it to exit.
 select_hi_proc([], High)-> High;  
-select_hi_proc([{IdN, PidN},StorageProcs], {Id, Pid})->
+select_hi_proc([{IdN, PidN} | StorageProcs], {Id, Pid})->
 	case IdN > Id of 
 		true -> 
 			select_hi_proc(StorageProcs, {IdN, PidN});

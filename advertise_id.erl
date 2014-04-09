@@ -37,7 +37,7 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
 			% of 
 			Snapshot  = snapshot(StorageProcs),
 			% pass 1st round snapshot message along
-			hd(ToGet) ! {self(), snapshot, tl(ToGet), [SnapshotList, Snapshot]},
+			hd(ToGet) ! {self(), snapshot, tl(ToGet), SnapshotList++[Snapshot]},
 			
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot)
 	end;
