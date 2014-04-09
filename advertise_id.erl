@@ -30,13 +30,27 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 			print("Received NodeList request from ~p~n", [Pid]),
 			Pid ! {self(), Neighbors},
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
-		{Pid, snapshot} ->
-			% take snapshot in response to command
+		{Pid, snapshot, ToGet, NewBackups} ->
+			% snapshot, 1st round. Each storage process in chord records its state
+			
+			% pass message onto stor_procs and create list 
+			% of 
+			%  = get_backups(StorageProcs),
+			
+			% pass 1st round snapshot message along
+			hd(ToGet) ! {self(), snapshot, tl(ToGet)},
+			
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);	
-		{Pid, snapshot_over} ->
-			%% snapshot is over. Have some result?
+		{Pid, snapshot_over, ToGet, NewBackups} ->
+			% snapshot, 2nd round. Each storage process updates its backups
+			
+			% update backups
+			
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)		
 	end.	
+
+
+
 
 %% initiate snapshot if initiator
 %%init_snapshot

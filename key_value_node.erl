@@ -83,8 +83,6 @@ node_enter(M, NodeName, Neighbors) ->
 	ok;
       _ -> ok
   end.
-
-
 %% retreive storage processes from other nodes
 enter_load_balance(Id, PrevId, NextId, Storage_Procs, TwoToTheM)->
 	% send message to node with Id PrevId to get 
