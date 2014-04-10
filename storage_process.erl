@@ -21,7 +21,7 @@
 init_store(TwoToTheM, NodeName, Id, Neighbors, Storage)->
   	register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
 	println("Neighbors is ~p~n", [Neighbors]),
-	%Backups = backup_neighbors(Neighbors),
+	Backups = backup_neighbors(Id, Neighbors),
 	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, []).%Backups). 
 
 
@@ -38,22 +38,22 @@ find_neighbor(Neighbors, Id)->
   end.
 
 %% backup neighbors in the ring
-backup_neighbors([]) -> [];
-backup_neighbors([IdN | Neighbors]) -> 
+backup_neighbors(_Id, []) -> [];
+backup_neighbors(Id, [IdN | Neighbors]) -> 
 	RecvNeigh = list_to_atom("StorageProcess"++integer_to_list(IdN)),
 	println("Sending backup request to ~p~n", [RecvNeigh]),
-	RecvNeigh ! {self(), backup_request},
+	global:send(RecvNeigh, list_to_atom("backup_request"++integer_to_list(Id))),
 	receive 
 	 {_Ref, backup_response, Backup} ->
 		% create backup
 		println("Backing up ~p~n", [RecvNeigh]),
 		% monitor to see if backup needs to register
 		monitor_neighbor(RecvNeigh, self()), 
-		backup_neighbors(Neighbors)++[Backup];
+		backup_neighbors(Id, Neighbors)++[Backup];
 
 	 {_Ref, failure} ->
 		println("Neighbor ~p crashed. TwoToTheMoving on.~n", [IdN]),
-		backup_neighbors(Neighbors)
+		backup_neighbors(Id, Neighbors)
 	end.
 
 %% primary storage service function; handles
