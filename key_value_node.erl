@@ -47,7 +47,7 @@ main(Params) ->
   NeighborsList = tl(tl(Params)),
   Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, NeighborsList),
   case Neighbors == [] of
-      true -> println("This node has no neighbors. It must be the first node.");      false -> println("This node knows ~p~n", [hd(Neighbors)]) 
+      true -> println("This node has no neighbors. It must be the first node.");      false -> println("This node knows ~p~n", [Neighbors]) 
   end,
   % IMPORTANT: Start the epmd daemon!
   os:cmd("epmd -daemon"),
@@ -70,7 +70,6 @@ node_enter(M, NodeName, Neighbors) ->
       [Neighbor] ->
 	% contact known neighbor to get list of everyone.
         % assign id and balance load. End with advertising,
-	print("Wat"),
 	[Id, PrevId, NextId, NodeList] = global_processes_update(TwoToTheM, Neighbor, NodeName),
 	case PrevId == -1 of
 	       true -> 
@@ -139,11 +138,11 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
 %% from the one other known neighbor, connect, and
 %% assign unique node number.
 global_processes_update(TwoToTheM, Neighbor, NodeName) ->
-	print("Hisdgdsg"),
    case net_kernel:connect_node(Neighbor) of 
      true -> print("Connected to neighbor ~p~n", [Neighbor]), 
        timer:sleep(500), % sleep for 0.5 seconds, need to wait until names are registered properly
        NeighborsNames = global:registered_names(),
+       print("Globally registered names are ~p~n", [NeighborsNames]),
        NodeList = lists:sort(get_global_list(NeighborsNames, Neighbor, NodeName)),
        {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {-1, 0, -1}, TwoToTheM),
        	     [Id, PrevId, NextId, NodeList];
@@ -152,9 +151,10 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
    end.
 
 %% gets global list of {Node, Id, Pid}'s
-get_global_list(NeighborsNames, [Neighbor], NodeName)->
+get_global_list(NeighborsNames, Neighbor, NodeName)->
 	print("Sending request to ~p for the node list~n", [Neighbor]),
 	Neighbor ! {NodeName, node_list},
+	print("PASS"),
 	receive
 		{Pid, node_list, NodeList} ->
 			print("Recieved node list from ~p~n", [Pid]),
