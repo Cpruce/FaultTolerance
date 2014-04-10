@@ -45,10 +45,11 @@ main(Params) ->
   % 0 or more additional parameters. If not nil, then the extra 
   % parameter is the registered name of anoter node.
   NeighborsList = tl(tl(Params)),
+  print("NeighborsList is ~p~n", [NeighborsList]),
   Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, NeighborsList),
-  if
-    Neighbors == [] ->
-      println("This node has no neighbors. It must be the first node.")
+  print("HEre"),
+  case Neighbors == [] of
+      true -> println("This node has no neighbors. It must be the first node.");      false -> println("This node knows ~p~n", [Neighbors]) 
   end,
   % IMPORTANT: Start the epmd daemon!
   os:cmd("epmd -daemon"),
@@ -71,7 +72,8 @@ node_enter(M, NodeName, Neighbors) ->
 	ok;
       [Neighbor] ->
 	% contact known neighbor to get list of everyone.
-        % assign id and balance load. End with advertising,	
+        % assign id and balance load. End with advertising,
+	print("Got to global_processes_update", []),	
 	{Id, PrevId, NextId, NodeList} = global_processes_update(TwoToTheM, Neighbor, NodeName),
 	case PrevId == -1 of
 	       true -> 
