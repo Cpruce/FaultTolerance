@@ -5,12 +5,12 @@
 %% @doc _D157R18U73_
 -module(key_value_node_working).
 
--import(storage_process, [storage_serve/4]).
+-import(storage_process_working, [storage_serve/4]).
 -import(non_storage_process, [run/0]).
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([main/1]).
+-export([main/1, print/1, print/2, println/1, println/2]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -132,23 +132,41 @@ global_processes_update(M, [Neighbor]) ->
     true ->
       println("node = ~p", [node()]),
       println("Connected to the neighbor ~p", [Neighbor]),
-      % sleep for 0.5 seconds -- we need to wait until it successfully registers
+      % sleep for 0.5 seconds -- we need to wait until names are successfully registered
       timer:sleep(500),
       NeighborsNames = global:registered_names(),
-      println("List of registered names is empty: ~p", [NeighborsNames == []]);
+      println("List of registered names is empty?: ~p", [NeighborsNames == []]),
+      println("List of neighbors: ~p", [NeighborsNames]);
     false ->
       println("Could not connect to neighbor ~p", [Neighbor])
   end,
   {1,2}.
-  % case net_kernel:connect_node(Neighbor) of 
-  %   true -> println("Connected to neighbor ~p~n", [Neighbor]), 
-  %     % Neighbors = reg_connect(global:registered_names() -- Neighbor, [], M),
-  %     % NodeId = assign_id(math:pow(2, M), Neighbors),
-  %     {0, []};
-  %     %{Id, Neighbors};
-  %   false -> println("Could not connect to neighbor ~p~n", [Neighbor]),
-  %     {0, []} 
-  % end.
+
+%% compute furthest distance between any two node ids
+%% X is the greatest difference and Id is the lower of the 
+%% two Id's. NewId is half the greatest distance plus the 
+%% lower of the two Id's, mod 2^M.
+%% Assumption: NodeList is sorted.
+assign_id(_Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
+  {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId};
+assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
+  % difference between last elem and the head
+  % only non-increasing difference (mod 2^M)
+  Dif = TwoToTheM - (IdN - Hd), 
+        case Dif > X of
+    true ->
+      {(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
+    false ->
+      {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
+  end;  
+assign_id(Hd, [IdM, IdN | NodeList], {PrevId, X, NextId}, TwoToTheM)->
+  Dif = IdN - IdM, % Id's are now guaranteed to be increasing
+  case Dif > X of
+    true -> 
+      assign_id(Hd, [IdN]++NodeList, {IdM, Dif, IdN}, TwoToTheM);
+    false ->
+      assign_id(Hd, [IdN]++NodeList, {PrevId, X, NextId}, TwoToTheM)
+  end.
 
 %% ====================================================================
 %%                       Pretty Print Functions
