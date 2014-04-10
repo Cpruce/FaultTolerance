@@ -45,11 +45,9 @@ main(Params) ->
   % 0 or more additional parameters. If not nil, then the extra 
   % parameter is the registered name of anoter node.
   NeighborsList = tl(tl(Params)),
-  print("NeighborsList is ~p~n", [NeighborsList]),
   Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, NeighborsList),
-  print("HEre"),
   case Neighbors == [] of
-      true -> println("This node has no neighbors. It must be the first node.");      false -> println("This node knows ~p~n", [Neighbors]) 
+      true -> println("This node has no neighbors. It must be the first node.");      false -> println("This node knows ~p~n", [hd(Neighbors)]) 
   end,
   % IMPORTANT: Start the epmd daemon!
   os:cmd("epmd -daemon"),
@@ -67,14 +65,13 @@ node_enter(M, NodeName, Neighbors) ->
       [] ->
         % first node. create all 2^M storage processes, starting with id 0.
         StorageProcs = init_storage_processes(M, NodeName, TwoToTheM, 0),
-	print("NodeName is ~p, StorageProcs is ~p~n", [NodeName, StorageProcs]),
 	_Pid = spawn(advertise_id, init_adv, [0, NodeName, [], StorageProcs, TwoToTheM]),
 	ok;
       [Neighbor] ->
 	% contact known neighbor to get list of everyone.
         % assign id and balance load. End with advertising,
-	print("Got to global_processes_update", []),	
-	{Id, PrevId, NextId, NodeList} = global_processes_update(TwoToTheM, Neighbor, NodeName),
+	print("Wat"),
+	[Id, PrevId, NextId, NodeList] = global_processes_update(TwoToTheM, Neighbor, NodeName),
 	case PrevId == -1 of
 	       true -> 
 		       StorageProcs = init_storage_processes(M, NodeName, TwoToTheM, 0),
@@ -141,20 +138,21 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
 %% get and update global list of registered nodes 
 %% from the one other known neighbor, connect, and
 %% assign unique node number.
-global_processes_update(TwoToTheM, [Neighbor], NodeName) ->
+global_processes_update(TwoToTheM, Neighbor, NodeName) ->
+	print("Hisdgdsg"),
    case net_kernel:connect_node(Neighbor) of 
      true -> print("Connected to neighbor ~p~n", [Neighbor]), 
        timer:sleep(500), % sleep for 0.5 seconds, need to wait until names are registered properly
        NeighborsNames = global:registered_names(),
        NodeList = lists:sort(get_global_list(NeighborsNames, Neighbor, NodeName)),
        {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {-1, 0, -1}, TwoToTheM),
-       {Id, PrevId, NextId, NodeList};
+       	     [Id, PrevId, NextId, NodeList];
      false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
-       {0, -1, -1, []} 
+	     [0, -1, -1, []] 
    end.
 
 %% gets global list of {Node, Id, Pid}'s
-get_global_list(NeighborsNames, Neighbor, NodeName)->
+get_global_list(NeighborsNames, [Neighbor], NodeName)->
 	print("Sending request to ~p for the node list~n", [Neighbor]),
 	Neighbor ! {NodeName, node_list},
 	receive
