@@ -19,7 +19,7 @@
 %% ====================================================================
 
 init_store(TwoToTheM, NodeName, Id, Neighbors, Storage)->
-  	register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
+  	global:register_name(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
 	println("Neighbors is ~p~n", [Neighbors]),
 	Backups = backup_neighbors(Id, Neighbors),
 	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, []).%Backups). 
