@@ -134,6 +134,15 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [Id] ++ init_storage_processes(M, NodeName, TwoToTheM, Id + 1). 
 
+get_adv([])-> []
+get_adv(Names)->
+	case string:substr(hd(Names), 0, 4) == "adv:" of
+		true ->
+			[hd(Names)];
+		false ->
+			get_adv(tl(Names))
+	end.
+
 %% get and update global list of registered nodes 
 %% from the one other known neighbor, connect, and
 %% assign unique node number.
@@ -143,11 +152,12 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
        timer:sleep(1500), % sleep for 0.5 seconds, need to wait until names are registered properly
        NeighborsNames = global:registered_names(),
        print("Globally registered names are ~p~n", [NeighborsNames]),
-       NodeList = lists:sort(get_global_list(NeighborsNames, Neighbor, NodeName)),
+       [Connection] = get_adv(NeighborsNames), 
+       NodeList = lists:sort(get_global_list(NeighborsNames, Connection, NodeName)),
        {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {-1, 0, -1}, TwoToTheM),
        	     [Id, PrevId, NextId, NodeList];
      false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
-	     [0, -1, -1, []] 
+	     [0, -1, -1, []]
    end.
 
 %% gets global list of {Node, Id, Pid}'s
