@@ -31,16 +31,16 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
 			print("Received NodeList request from ~p~n", [Pid]),
 			Pid ! {self(), Neighbors},
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive);
-		{Pid, snapshot, ToGet, SnapshotList} ->
+		%{Pid, snapshot, ToGet, SnapshotList} ->
 			% snapshot, 1st round. Each storage process in chord records its state
 			
 			% pass message onto stor_procs and create list 
 			% of 
-			Snapshot  = snapshot(StorageProcs),
+			%Snapshot  = snapshot(StorageProcs),
 			% pass 1st round snapshot message along
-			hd(ToGet) ! {self(), snapshot, tl(ToGet), SnapshotList++[Snapshot]},
+			%hd(ToGet) ! {self(), snapshot, tl(ToGet), SnapshotList++[Snapshot]},
 			
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot)
+			%advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot)
 	end;
 advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot)->
 	receive
