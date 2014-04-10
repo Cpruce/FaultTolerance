@@ -136,7 +136,7 @@ global_processes_update(M, [Neighbor]) ->
       timer:sleep(500),
       NeighborsNames = global:registered_names(),
       println("List of registered names is empty?: ~p", [NeighborsNames == []]),
-      println("List of neighbors: ~p", [NeighborsNames]);
+      println("List of registered names: ~p", [NeighborsNames]);
     false ->
       println("Could not connect to neighbor ~p", [Neighbor])
   end,
