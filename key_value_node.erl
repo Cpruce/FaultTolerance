@@ -134,9 +134,9 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [Id] ++ init_storage_processes(M, NodeName, TwoToTheM, Id + 1). 
 
-get_adv([])-> []
+get_adv([])-> [];
 get_adv(Names)->
-	case string:substr(hd(Names), 0, 4) == "adv:" of
+	case string:substr(hd(atom_to_list(Names)), 0, 4) == "adv:" of
 		true ->
 			[hd(Names)];
 		false ->
