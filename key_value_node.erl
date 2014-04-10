@@ -136,7 +136,10 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
 
 get_adv([])-> [];
 get_adv(Names)->
-	case string:substr(hd(atom_to_list(Names)), 0, 4) == "adv:" of
+    print("Hi"),
+    Ind = string:str(atom_to_list(hd(Names)), "Adv:"),
+    print("hd of names is ~p~n", [Ind]),
+    case Ind > 0 of
 		true ->
 			[hd(Names)];
 		false ->
