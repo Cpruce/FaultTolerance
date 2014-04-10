@@ -17,7 +17,7 @@
 %% register and advertise the storage node
 init_adv(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 	print("HISF", []),
-	register(NodeName, self()),
+	register(list_to_atom(NodeName), self()),
 	advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive).
 
 %% wait for any Id, rebalancing, or neighbors list queries
@@ -30,7 +30,7 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
 		{Pid, node_list} ->
 			print("Received NodeList request from ~p~n", [Pid]),
 			Pid ! {self(), Neighbors},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive);
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)
 		%{Pid, snapshot, ToGet, SnapshotList} ->
 			% snapshot, 1st round. Each storage process in chord records its state
 			
