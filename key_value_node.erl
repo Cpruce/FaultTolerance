@@ -1,4 +1,4 @@
-%% CSCI182E - Distributed Systems
+% CSCI182E - Distributed Systems
 %% Harvey Mudd College
 %% Fault tolerant distributed key-value storage system
 %% @author Cory Pruce, Tum Chaturapruek
@@ -74,7 +74,7 @@ node_enter(M, NodeName, Neighbors) ->
 	{Id, PrevId, NextId, NodeList} = global_processes_update(TwoToTheM, Neighbor, NodeName),
 	case PrevId == -1 of
 	       true -> 
-	       		StorageProcs = init_storage_processes(M, NodeName, TwoToTheM, 0),
+		       StorageProcs = init_storage_processes(M, NodeName, TwoToTheM, 0),
 			% node non-storage process can only talk to the local node's storage procs, and the non-storage processes of the nodes that have the storage procs neighbors
 			NodeNeighbors = prune_neighbors(NodeList, StorageProcs, 0, TwoToTheM, []),
 			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeNeighbors, StorageProcs, TwoToTheM]);

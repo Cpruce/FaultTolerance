@@ -20,11 +20,9 @@
 
 init_store(TwoToTheM, NodeName, Id, Neighbors, Storage)->
   	register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
-    println("The neighbors are:"),
-    println("Empty list: ~p" , [Neighbors == []]),
-    println("~p", [Neighbors]),
-	Backups = backup_neighbors(Neighbors),
-	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups). 
+	println("Neighbors is ~p~n", [Neighbors]),
+	%Backups = backup_neighbors(Neighbors),
+	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, []).%Backups). 
 
 
 %% find neighbor by Id
