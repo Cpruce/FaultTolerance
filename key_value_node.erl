@@ -65,7 +65,7 @@ node_enter(M, NodeName, Neighbors) ->
       [] ->
         % first node. create all 2^M storage processes, starting with id 0.
         StorageProcs = init_storage_processes(M, NodeName, TwoToTheM, 0),
-	_Pid = spawn(advertise_id, init_adv, [0, NodeName, [], StorageProcs, TwoToTheM]),
+	_Pid = spawn(advertise_id, init_adv, [0, NodeName, [0], StorageProcs, TwoToTheM]),
 	ok;
       [Neighbor] ->
 	% contact known neighbor to get list of everyone.
@@ -126,7 +126,9 @@ init_storage_processes(0, _NodeName,  _, _Id) -> [];
 init_storage_processes(_M, _NodeName, TwoToTheM, TwoToTheM) -> [];
 init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
-  Neighbors = [ Id + round(math:pow(2, K)) || K <-lists:seq(0, M - 1)],
+  println("TwoToTheM = ~p and 10 rem 8 is ~p~n", [TwoToTheM, 10 rem 8]),
+  Neighbors = [ (Id + round(math:pow(2, K))) rem TwoToTheM || K <-lists:seq(0, M - 1)],
+  println("Neighbs = ~p~n", [Neighbors]),
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
   % spawn's arguments are: Module, Function, Args
@@ -156,16 +158,17 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
        print("Globally registered names are ~p~n", [NeighborsNames]),
        [Connection] = get_adv(NeighborsNames), 
        NodeList = lists:sort(get_global_list(NeighborsNames, Connection, NodeName)),
+       println("NodeList is ~p~n", [NodeList]),
        {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {-1, 0, -1}, TwoToTheM),
-       	     [Id, PrevId, NextId, NodeList];
+       [Id, PrevId, NextId, lists:sort(NodeList++[Id])];
      false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
-	     [0, -1, -1, []]
+	     [0, -1, -1, [0]]
    end.
 
 %% gets global list of {Node, Id, Pid}'s
 get_global_list(NeighborsNames, Neighbor, NodeName)->
 	print("Sending request to ~p for the node list~n", [Neighbor]),
-	global:send(Neighbor, [self(), node_list]),
+	global:send(Neighbor, {self(), node_list}),
 	receive
 		{Pid, node_list, NodeList} ->
 			print("Recieved node list from ~p~n", [Pid]),

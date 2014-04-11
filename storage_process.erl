@@ -38,7 +38,9 @@ init_store(M, NodeName, Id, Neighbors, Storage)->
 	storage_serve(M, NodeName, Id, Neighbors, Storage, []).%Backups). 
 
 %% backup neighbors in the ring
-backup_neighbors(_Id, [], _Storage) -> [];
+backup_neighbors(_Id, [], _Storage) -> 
+    println("Done backing up neighbors!"),
+    [];
 backup_neighbors(Id, [IdN | Neighbors], Storage) -> 
 	RecvNeigh = list_to_atom("StorageProcess"++integer_to_list(IdN)),
 	println("StorageProcess~p sending backup request to ~p~n", [Id, RecvNeigh]),
@@ -56,18 +58,23 @@ backup_aux(Id, RecvNeigh, Neighbors, Storage)->
 		% create backup
 		println("Backing up ~p~n", [RecvNeigh]),
 		% monitor to see if backup needs to register
-		monitor_neighbor(RecvNeigh, self()), 
-		backup_neighbors(Id, Neighbors, Storage)++[Backup];
+		monitor_neighbor(RecvNeigh, self()),
+        backup_neighbors(Id, Neighbors, Storage)++[Backup];
 
 	 {_Ref, failure} ->
 		println("Neighbor ~p crashed. Moving on.~n", [RecvNeigh]),
-		backup_neighbors(Id, Neighbors, Storage)
-    end.
+        backup_neighbors(Id, Neighbors, Storage);
+
+        _ ->
+            println("Received something else"),
+            backup_neighbors(Id, Neighbors, Storage)
+
+end.
 %% primary storage service function; handles
 %% general communication and functionality.
 storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
     GlobalName = getStorageProcessName(Id),
-    Rnd = crypto:rand_uniform(50000, 500000),
+    Rnd = crypto:rand_uniform(5000, 50000),
     println("listening for ~p...", [Rnd]),
     receive 
     	{Pid, Ref, store, Key, Value} ->
@@ -179,11 +186,11 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
 	  	storage_serve(M, NodeName, Id, Neighbors, Storage, Backups)
     after 
       Rnd ->
-        println("sdfsdfsd"),
-	    Backups = backup_neighbors(Id, Neighbors, Storage),
-        println("dsgdssds"),
-        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups)
-end.
+	    NewBackups = backup_neighbors(Id, Neighbors, Storage),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, NewBackups)
+end,
+
+storage_serve(M, NodeName, Id, Neighbors, Storage, Backups).
 
 %%% remove highest numbered process from list.
 %% tell it to exit.
