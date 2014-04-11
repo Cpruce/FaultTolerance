@@ -151,7 +151,7 @@ get_adv(Names)->
 global_processes_update(TwoToTheM, Neighbor, NodeName) ->
    case net_kernel:connect_node(Neighbor) of 
      true -> print("Connected to neighbor ~p~n", [Neighbor]), 
-       timer:sleep(1500), % sleep for 0.5 seconds, need to wait until names are registered properly
+       timer:sleep(500), % sleep for 0.5 seconds, need to wait until names are registered properly
        NeighborsNames = global:registered_names(),
        print("Globally registered names are ~p~n", [NeighborsNames]),
        [Connection] = get_adv(NeighborsNames), 

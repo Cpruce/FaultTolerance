@@ -111,7 +111,7 @@ init_storage_processes(0, _TwoToTheM, _Id) -> [];
 init_storage_processes(_M, TwoToTheM, TwoToTheM) -> [];
 init_storage_processes(M, TwoToTheM, Id) ->
   % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
-  Neighbors = [Id + round(math:pow(2, K)) || K <-lists:seq(0, M - 1)],
+  Neighbors = [(Id + round(math:pow(2, K))) rem TwoToTheM || K <-lists:seq(0, M - 1)],
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~s",
     [Id, pretty_print_list_of_nums(Neighbors)]),
