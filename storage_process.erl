@@ -10,7 +10,7 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([init_store/5]).
+-export([init_store/4]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -18,140 +18,133 @@
 %%                            TwoToTheMain Function
 %% ====================================================================
 
-init_store(TwoToTheM, NodeName, Id, Neighbors, Storage)->
-  	global:register_name(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
+init_store(TwoToTheM, NodeName, Id, Neighbors)->
+  	Storage = ets:new(table, [ordered_set]),
+global:register_name(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
 	println("Neighbors is ~p~n", [Neighbors]),
-	Backups = backup_neighbors(Id, Neighbors),
 	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, []).%Backups). 
 
+% getStorageProcessName/1
+% converts a storage process id to its globally registered name.
+getStorageProcessName(Id) ->
+  "StorageProcess" ++ integer_to_list(Id).
 
-%% find neighbor by Id
-find_neighbor([], _Id) -> [];
-find_neighbor(Neighbors, Id)->
-  IdN = hd(Neighbors),
-  case Id == IdN of
-    true ->
-      %% Id's match, return name.
-      [IdN];
-    false ->
-      find_neighbor(tl(Neighbors), Id)
-  end.
+
+% floor function, taken from http://schemecookbook.org/Erlang/NumberRounding
+floor(X) ->
+    T = erlang:trunc(X),
+    case (X - T) of
+        Neg when Neg < 0 -> T - 1;
+        Pos when Pos > 0 -> T;
+        _ -> T
+    end.
 
 %% backup neighbors in the ring
-backup_neighbors(_Id, [], _Storage) -> 
+backup_neighbors(M, NodeName, _Id, [], _Storage) -> 
     println("Done backing up neighbors!"),
     [];
-backup_neighbors(Id, [IdN | Neighbors], Storage) -> 
+backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage) -> 
 	RecvNeigh = list_to_atom("StorageProcess"++integer_to_list(IdN)),
 	println("Sending backup request to ~p~n", [RecvNeigh]),
-	global:send(RecvNeigh, list_to_atom("backup_request"++integer_to_list(Id))),
+    global:send(RecvNeigh, {self(), backup_request}),
 	receive 
-	 {_Ref, backup_response, Backup} ->
+	 {Pid, backup_response, Backup} ->
 		% create backup
 		println("Backing up ~p~n", [RecvNeigh]),
 		% monitor to see if backup needs to register
 		monitor_neighbor(RecvNeigh, self()),
-        backup_neighbors(Id, Neighbors, Storage)++[Backup];
+        backup_neighbors(M, NodeName, Id, Neighbors, Storage)++[Backup];
 
+     {Pid, backup_request} ->
+		% send storage back to be backed up
+        global:send(Pid, {self(), backup_response, Storage}),
+		backup_neighbors(M, NodeName, Id, Neighbors, Storage);
+
+     
 	 {_Ref, failure} ->
 		println("Neighbor ~p crashed. Moving on.~n", [RecvNeigh]),
-        backup_neighbors(Id, Neighbors, Storage);
+        backup_neighbors(M, NodeName, Id, Neighbors, Storage);
 
         _ ->
             println("Received something else"),
-            backup_neighbors(Id, Neighbors, Storage)
+            backup_neighbors(M, NodeName, Id, Neighbors, Storage)
 
 end.
 %% primary storage service function; handles
 %% general communication and functionality.
 storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
     GlobalName = getStorageProcessName(Id),
-    Rnd = crypto:rand_uniform(5000, 50000),
+    Rnd = crypto:rand_uniform(8000, 20000),
     println("listening for ~p...", [Rnd]),
     receive 
-    	{Pid, _Ref, store, Key, Value} ->
-      		println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),  
-      		case hash(Key, TwoToTheM) == Id of
-        	% operation to be done at this process
-        		true ->
-          			% save old value, replace it, and send message back
-          			Oldval = dict:fetch(Key, Storage),
-          			NewStore = dict:store(Key, Value, Storage),
-	  			println("Hash evaluated to Id, stored locally. Sending stored to ~p~n", [Pid]),
-	  			Pid ! {_Ref, stored, Oldval},
-	  			storage_serve(TwoToTheM, NodeName, Id, Neighbors, NewStore, Backups);
-        		% pass on computation
-        		false ->
-        			% find and send to correct recipient
-          			RecvId = find_neighbor(Neighbors, Id),
-				Recv = list_to_atom("StorageProcess"++integer_to_list(RecvId)),
-				println("Passing store message onto ~p~n", [Recv]), 
-          			Recv ! {Pid, _Ref, store, Key, Value},
-       	  			storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups)
-		end;
-    	{_Ref, stored, Oldval} -> 
-	       case Oldval == no_value of
-		    true -> 
-			  println("No previously stored value. Store successful~n"),
-			  storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
-		    false ->
-			  println("Oldval is ~p~n. Store successful~n", [Oldval]), 
-			  storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups)
-	    end;
-    
-    	{Pid, _Ref, retrieve, Key} -> 
-    		println("Received retrieve command at key ~p from ~p~n", [Key, Pid]),  
-      		case hash(Key, TwoToTheM) == Id of
-        	% operation to be done at this process
-        		true ->
-          			Val = dict:fetch(Key, Storage),
-	  			println("Hash evaluated to Id, retrieved locally. Sending retrieved to ~p with the value ~p~n", [Pid, Val]),
-	  			Pid ! {_Ref, retrieved, Val},
-	  			storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
-        		% pass on computation
-        		false ->
-          			% find and send to correct recipient
-          			Recv = find_neighbor(Neighbors, Id),
-	  			println("Passing retrieve message onto ~p~n", [Recv]), 
-          			Recv ! {Pid, _Ref, retrieve, Key},
-       	  			storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups)
-		end;
-    
-     	{_Ref, retrieved, Value} -> 
-		case Value == no_value of
-			true -> 
-				println("No previously stored value. Retrieve unsuccessful~n"),
-			  	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
-		    	false ->
-				println("Value is ~p~n. Retrieve successful~n", [Value]), 
-			  	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups)
-	    	end;
-   
-     	{Pid, _Ref, first_key} -> 
-		println("Received first_key request from ~p~n", [Pid]),
-	    	%% do leader election? or snapshot? (pg 5 of hw5.pdf) 
-	    	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
-    
-     	{Pid, _Ref, last_key} -> 
-        	println("Received last_key request from ~p~n", [Pid]),
-	    	%% do leader election? or snapshot? (pg 5 of hw5.pdf) 
-	    	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups); 
-    
-    	{Pid, _Ref, num_keys} -> 
-		println("Received num_keys request from ~p~n", [Pid]),
-	    	%% do leader election? or snapshot? (pg 5 of hw5.pdf)  
-	    	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
-    
-    	{Pid, _Ref, node_list} ->
-		println("Received node_list request from ~p~n", [Pid]),
-		NodeName ! {self(), node_list},
-		storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
-    
-    	{_Ref, result, Result} -> 
-            println("Obtained result ~p~n", [Result]),
-            storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
-    
-    	{Pid, rebalance, {NewNode, NewId, NewPid}} ->
+    	{Pid, Ref, store, Key, Value} ->
+      	println(""),
+      println("~s> Received store command at key ~p of value ~p from ~p",
+        [GlobalName, Key, Value, Pid]),
+      HashValue = hash(Key, M),
+      println("~s> Hashed value of the key: ~p", [GlobalName, HashValue]),
+      case HashValue == Id of
+        true ->
+          % operation to be done at this process
+          % save old value, replace it, and send message back
+          case ets:lookup(Storage, Key) of
+            [] ->
+              % this means there is no key before.
+              ets:insert(Storage, {Key, Value}),
+              println("~s> {~p, ~p} stored. The key is brand new!",
+                [GlobalName, Key, Value]),
+              Pid ! {Ref, stored, no_value};
+
+            [{_OldKey, OldValue}] ->
+              println("~s> {~p, ~p} stored. The key existed before this store."
+                ++ "The old value was ~p", [GlobalName, OldValue, Key, Value]),
+              Pid ! {Ref, stored, OldValue};
+
+            _ ->
+              println("~s> We should not arrive at this stage! This can mean" ++
+                "the table may be incorrectly set up to use multiset instead of set.")
+            end;
+
+        false ->
+          % Pass on computation
+          % determine the recipient to forward to -- see algorithm.pdf for
+          % how we get this number.
+          Diff = HashValue - Id,
+          DiffPositive = case Diff < 0 of
+            true -> Diff + round(math:pow(2, M));
+            false -> Diff
+          end,
+          % if r = 2^{a_s} + 2^{a_{s - 1}} + ...  where a_s > _{s - 1} > ...
+          % then we are trying to determine a_s, given r.
+          MaxPowerOfTwo = floor(math:log(DiffPositive) / math:log(2)),
+          ForwardedID = (Id + round(math:pow(2, MaxPowerOfTwo))) rem round(math:pow(2, M)),
+          ForwardedRecipient = getStorageProcessName(ForwardedID),
+          println("~s> The hash value does not match with this id. Forwarding the request to ~s...",
+            [GlobalName, ForwardedRecipient]),
+          % println("Check globally registered names: ~p", [global:registered_names()]),
+          global:send(ForwardedRecipient, {Pid, Ref, store, Key, Value})
+      end;
+    % ============================== STORED ===================================
+    {_Ref, stored, OldValue} -> 
+      case OldValue == no_value of
+        true -> 
+          println("~s> No previously stored value. Store successful.", [GlobalName]);
+        false ->
+          println("~s> The old value was ~p. Store successful.", [GlobalName, OldValue])
+      end;
+    % ============================== RETRIEVE =================================
+    {Pid, Ref, retrieve, Key} ->
+      ok;
+    % ============================== RETRIEVED ================================
+    {Ref, retrieved, Value} -> ok;
+    % ============================= FIRST KEY =================================
+    {Pid, Ref, first_key} -> ok;
+    % ============================== LAST KEY =================================
+    {Pid, Ref, last_key} -> ok;
+    % ============================== NUM KEYS =================================
+    {Pid, Ref, num_keys} -> ok;
+    % ============================== NODE LIST ================================
+    {Pid, rebalance, {NewNode, NewId, NewPid}} ->
 			println("Received rebalance request from ~p~n", [Pid]),
 			%LentProcs = lend_procs(StorageProcs, {NewNode, NewId, NewPid}),
 			%advertise(Id, NodeName, Neighbors++[{NewNode, NewId, NewPid}], StorageProcs--LentProcs, TwoToTheTwoToTheM),			
@@ -160,14 +153,14 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
 	{Pid, backup_request} ->
 		% send storage back to be backed up
 		Pid ! {self(), backup_response, Storage},
-		storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, Backups);
+		storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);
 
 	{_Ref, failure} -> 
 		println("Node crashed during computation. failure.~n"),
 	  	storage_serve(M, NodeName, Id, Neighbors, Storage, Backups)
     after 
       Rnd ->
-	    NewBackups = backup_neighbors(Id, Neighbors, Storage),
+	    NewBackups = backup_neighbors(M, NodeName,Id, Neighbors, Storage),
         storage_serve(M, NodeName, Id, Neighbors, Storage, NewBackups)
 end,
 
@@ -189,7 +182,7 @@ select_hi_proc([{IdN, PidN} | StorageProcs], {Id, Pid})->
 
 % hash function to uniformly distribute among 
 %% storage processes.
-hash(Str, M) when M >= 0 -> str_sum(Str) rem round((math:pow(2, M)));;
+hash(Str, M) when M >= 0 -> str_sum(Str) rem round((math:pow(2, M)));
 hash(_, _) -> -1.   %% error if no storage
       %% processes are open.
 

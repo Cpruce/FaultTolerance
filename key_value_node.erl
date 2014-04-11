@@ -5,7 +5,7 @@
 %% @doc _D157R18U73_
 -module(key_value_node).
 
--import(storage_process, [init_store/5]).
+-import(storage_process, [init_store/4]).
 -import(advertise_id, [init_adv/5]).
 %% ====================================================================
 %%                             Public API
@@ -132,7 +132,7 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
   % spawn's arguments are: Module, Function, Args
-  Pid = spawn(storage_process, init_store, [M, NodeName, Id, Neighbors, []]),
+  Pid = spawn(storage_process, init_store, [M, NodeName, Id, Neighbors]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [Id] ++ init_storage_processes(M, NodeName, TwoToTheM, Id + 1). 
 
