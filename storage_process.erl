@@ -10,7 +10,7 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([init_store/4]).
+-export([init_store/4, x_store/6]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -18,17 +18,22 @@
 %%                            TwoToTheMain Function
 %% ====================================================================
 
-init_store(TwoToTheM, NodeName, Id, Neighbors)->
+init_store(M, NodeName, Id, Neighbors)->
   	Storage = ets:new(table, [ordered_set]),
 global:register_name(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
 	println("Neighbors is ~p~n", [Neighbors]),
-	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, []).%Backups). 
+	storage_serve(M, NodeName, Id, Neighbors, Storage, []).%Backups). 
+
+x_store(M, NodeName, Id, Neighbors, Storage, Backups)->
+global:register_name(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
+	println("Neighbors is ~p~n", [Neighbors]),
+	storage_serve(M, NodeName, Id, Neighbors, Storage, Backups). 
+
 
 % getStorageProcessName/1
 % converts a storage process id to its globally registered name.
 getStorageProcessName(Id) ->
   "StorageProcess" ++ integer_to_list(Id).
-
 
 % floor function, taken from http://schemecookbook.org/Erlang/NumberRounding
 floor(X) ->
@@ -40,11 +45,12 @@ floor(X) ->
     end.
 
 %% backup neighbors in the ring
-backup_neighbors(M, NodeName, _Id, [], _Storage) -> 
+backup_neighbors(M, NodeName, _Id, [], _Storage, Backups) -> 
     println("Done backing up neighbors!"),
     [];
-backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage) -> 
-	RecvNeigh = list_to_atom("StorageProcess"++integer_to_list(IdN)),
+backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups) -> 
+	GlobalName = getStorageProcessName(Id),
+    RecvNeigh = list_to_atom("StorageProcess"++integer_to_list(IdN)),
 	println("Sending backup request to ~p~n", [RecvNeigh]),
     global:send(RecvNeigh, {self(), backup_request}),
 	receive 
@@ -53,21 +59,104 @@ backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage) ->
 		println("Backing up ~p~n", [RecvNeigh]),
 		% monitor to see if backup needs to register
 		monitor_neighbor(RecvNeigh, self()),
-        backup_neighbors(M, NodeName, Id, Neighbors, Storage)++[Backup];
+        backup_neighbors(M, NodeName, Id, Neighbors, Storage, Backups)++[Backup];
 
      {Pid, backup_request} ->
 		% send storage back to be backed up
         global:send(Pid, {self(), backup_response, Storage}),
-		backup_neighbors(M, NodeName, Id, Neighbors, Storage);
+		backup_neighbors(M, NodeName, Id, Neighbors, Storage, Backups);
+    
+    {Pid, Ref, store, Key, Value} ->
+      	println(""),
+      println("~s> Received store command at key ~p of value ~p from ~p",
+        [GlobalName, Key, Value, Pid]),
+      HashValue = hash(Key, M),
+      println("~s> Hashed value of the key: ~p", [GlobalName, HashValue]),
+      case HashValue == Id of
+        true ->
+          % operation to be done at this process
+          % save old value, replace it, and send message back
+          case ets:lookup(Storage, Key) of
+            [] ->
+              % this means there is no key before.
+              ets:insert(Storage, {Key, Value}),
+              println("~s> {~p, ~p} stored. The key is brand new!",
+                [GlobalName, Key, Value]),
+              Pid ! {Ref, stored, no_value},
+            backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage,
+                Backups);
+              
 
+            [{_OldKey, OldValue}] ->
+              println("~s> {~p, ~p} stored. The key existed before this store."
+                ++ "The old value was ~p", [GlobalName, OldValue, Key, Value]),
+              Pid ! {Ref, stored, OldValue},
+              backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups);
+
+            _ ->
+              println("~s> We should not arrive at this stage! This can mean" ++
+                "the table may be incorrectly set up to use multiset instead of
+                set."),
+   backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups) end;
+
+        false ->
+          % Pass on computation
+          % determine the recipient to forward to -- see algorithm.pdf for
+          % how we get this number.
+          Diff = HashValue - Id,
+          DiffPositive = case Diff < 0 of
+            true -> Diff + round(math:pow(2, M));
+            false -> Diff
+          end,
+          % if r = 2^{a_s} + 2^{a_{s - 1}} + ...  where a_s > _{s - 1} > ...
+          % then we are trying to determine a_s, given r.
+          MaxPowerOfTwo = floor(math:log(DiffPositive) / math:log(2)),
+          ForwardedID = (Id + round(math:pow(2, MaxPowerOfTwo))) rem round(math:pow(2, M)),
+          ForwardedRecipient = getStorageProcessName(ForwardedID),
+          println("~s> The hash value does not match with this id. Forwarding the request to ~s...",
+            [GlobalName, ForwardedRecipient]),
+          % println("Check globally registered names: ~p", [global:registered_names()]),
+          global:send(ForwardedRecipient, {Pid, Ref, store, Key, Value}),
+      backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups)
+end;
+    % ============================== STORED ===================================
+    {_Ref, stored, OldValue} -> 
+      case OldValue == no_value of
+        true -> 
+          println("~s> No previously stored value. Store successful.",
+              [GlobalName]),
+          backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups);
+        false ->
+          println("~s> The old value was ~p. Store successful.", [GlobalName,
+                  OldValue]),
+          backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups)
+      end;
+    % ============================== RETRIEVE =================================
+    {Pid, Ref, retrieve, Key} ->
+     backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups);
+    % ============================== RETRIEVED ================================
+    {Ref, retrieved, Value} ->  backup_neighbors(M, NodeName, Id, [IdN |
+                Neighbors], Storage, Backups);    % ============================= FIRST KEY =================================
+    {Pid, Ref, first_key} -> backup_neighbors(M, NodeName, Id, [IdN |
+                Neighbors], Storage, Backups);
+    % ============================== LAST KEY =================================
+    {Pid, Ref, last_key} -> backup_neighbors(M, NodeName, Id, [IdN |
+                Neighbors], Storage, Backups);    % ============================== NUM KEYS =================================
+    {Pid, Ref, num_keys} -> backup_neighbors(M, NodeName, Id, [IdN |
+                Neighbors], Storage, Backups);  
+    %============================== NODE LIST ================================
+    {Pid, rebalance} ->
+			println("Received rebalance request from ~p~n", [Pid]),
+        Pid ! {self(), rebalance_response, Storage, Backups, Neighbors},
+        halt();
      
 	 {_Ref, failure} ->
 		println("Neighbor ~p crashed. Moving on.~n", [RecvNeigh]),
-        backup_neighbors(M, NodeName, Id, Neighbors, Storage);
+        backup_neighbors(M, NodeName, Id, Neighbors, Storage, Backups);
 
         _ ->
             println("Received something else"),
-            backup_neighbors(M, NodeName, Id, Neighbors, Storage)
+            backup_neighbors(M, NodeName, Id, Neighbors, Storage, Backups)
 
 end.
 %% primary storage service function; handles
@@ -145,10 +234,9 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
     {Pid, Ref, num_keys} -> ok;
     % ============================== NODE LIST ================================
     {Pid, rebalance, {NewNode, NewId, NewPid}} ->
-			println("Received rebalance request from ~p~n", [Pid]),
-			%LentProcs = lend_procs(StorageProcs, {NewNode, NewId, NewPid}),
-			%advertise(Id, NodeName, Neighbors++[{NewNode, NewId, NewPid}], StorageProcs--LentProcs, TwoToTheTwoToTheM),			
-	ok;
+		println("Received rebalance request from ~p~n", [Pid]),
+        Pid ! {self(), rebalance_response, Storage, Backups, Neighbors},
+        halt();
 	
 	{Pid, backup_request} ->
 		% send storage back to be backed up
@@ -160,7 +248,8 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
 	  	storage_serve(M, NodeName, Id, Neighbors, Storage, Backups)
     after 
       Rnd ->
-	    NewBackups = backup_neighbors(M, NodeName,Id, Neighbors, Storage),
+	    NewBackups = backup_neighbors(M, NodeName,Id, Neighbors, Storage,
+            Backups),
         storage_serve(M, NodeName, Id, Neighbors, Storage, NewBackups)
 end,
 

@@ -79,12 +79,19 @@ node_enter(M, NodeName, Neighbors) ->
 			NodeNeighbors = prune_neighbors(NodeList, StorageProcs, 0, TwoToTheM, []),
 			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeNeighbors, StorageProcs, TwoToTheM]);
 	       false ->
-			StorageProcs = enter_load_balance(Id, PrevId, NextId, [], TwoToTheM),
-			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM])
+            RecvNeigh = getStorageProcessName(PrevId),
+			StorageProcs = enter_load_balance(M, NodeName, Id, RecvNeigh, PrevId, NextId, [], TwoToTheM),
+		    println("Received storage procs: ~p", [StorageProcs]),
+            % make sure new processes are backed up on appropriate neighbors
+            _Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM])
 	end,
 	ok;
       _ -> ok
   end.
+
+getStorageProcessName(Id) ->
+  "StorageProcess" ++ integer_to_list(Id).
+
 
 %% auxiliary function to get node that 
 %% storage process is on
@@ -114,12 +121,30 @@ prune_neighbors(NodeList, StorageProcs, K, TwoToTheM, Pruned)->
 	end.
 	
 %% retreive storage processes from other nodes
-enter_load_balance(Id, PrevId, NextId, Storage_Procs, TwoToTheM)->
+enter_load_balance(M, NodeName, Id, RecvNeigh, NextId, NextId, Storage_Procs, TwoToTheM) ->
+    []; 
+enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoToTheM)->
 	% send message to node with Id PrevId to get 
 	% storage processes [Id, NextId] including Id and 
 	% excluding NextId
-	
-	ok.
+    println("Sending rebalance request to ~p", [RecvNeigh]),
+    global:send(RecvNeigh, {self(), rebalance}),
+	receive
+        {Pid, rebalance_response, Storage, Backups, NewNeighbors} ->
+            Spid = spawn(storage_process, x_store, [M, NodeName, Ind,
+                    NewNeighbors, Storage, Backups]),  
+           println("Storage process ~p transfered! Its PID is ~p", [Id, Spid]),
+           enter_load_balance(M, NodeName, Id, RecvNeigh, Ind+1, NextId,
+               Storage_Procs, TwoToTheM);
+        {_Ref, failure} ->
+            println("Node down"),
+            enter_load_balance(M, NodeName, Id, RecvNeigh, Ind+1, NextId,
+               Storage_Procs, TwoToTheM);
+       _ ->
+           println("Received something else"),
+enter_load_balance(M, NodeName, Id, RecvNeigh, Ind+1, NextId,
+               Storage_Procs, TwoToTheM)
+    end.
 
 %% Case: if this node is the first node
 %% init storage processes. return tuple list of Ids with Pid's
