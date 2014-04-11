@@ -30,7 +30,7 @@ storage_serve(M, Id, Neighbors, Storage) ->
   % register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
   receive 
     {Pid, Ref, store, Key, Value} ->
-      println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),
+      println("~s> Received store command at key ~p of value ~p from ~p~n", [GlobalName, Key, Value, Pid]),
       HashValue = hash(Key, M),
       println("Hashed value of the key: ~p", [HashValue]),
       case HashValue == Id of
@@ -56,7 +56,7 @@ storage_serve(M, Id, Neighbors, Storage) ->
           ForwardedRecipient = getStorageProcessName(ForwardedID),
           println("~s> The hash value does not match with this id. Forwarding the request to ~s...",
             [GlobalName, ForwardedRecipient]),
-          println("Check globally registered names: ~p", [global:registered_names()]),
+          % println("Check globally registered names: ~p", [global:registered_names()]),
           global:send(ForwardedRecipient, {Pid, Ref, store, Key, Value})
           % Recv = find_neighbor(Neighbors, Id),    %% ADD IN ONLY IF 'i + 2^k'
           % Recv ! {Pid, self(), store, Key, Value}
