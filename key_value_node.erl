@@ -130,7 +130,7 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
   % spawn's arguments are: Module, Function, Args
-  Pid = spawn(storage_process, init_store, [TwoToTheM, NodeName, Id, Neighbors, []]),
+  Pid = spawn(storage_process, init_store, [M, NodeName, Id, Neighbors, []]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [Id] ++ init_storage_processes(M, NodeName, TwoToTheM, Id + 1). 
 
