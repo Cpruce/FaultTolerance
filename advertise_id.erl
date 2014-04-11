@@ -21,10 +21,11 @@ init_adv(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 
 %% wait for any Id, rebalancing, or neighbors list queries
 advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
-	receive
-		{RetName, id} ->
-			print("Received Id request from ~p~n", [RetName]),
-            global:send(RetName, [self(), Id]),
+    print("advertising passively at node ~p~n", [NodeName]),
+    receive
+		{Pid, id} ->
+			print("Received Id request from ~p~n", [Pid]),
+            Pid ! {self(), Id},
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive);
 		{Pid, node_list} ->
 			print("Received NodeList request from ~p~n", [Pid]),
