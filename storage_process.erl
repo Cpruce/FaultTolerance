@@ -19,7 +19,7 @@
 %% ====================================================================
 
 init_store(TwoToTheM, NodeName, Id, Neighbors, Storage)->
-  	register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
+  	global:register_name(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
 	println("Neighbors is ~p~n", [Neighbors]),
 	Backups = backup_neighbors(Id, Neighbors),
 	storage_serve(TwoToTheM, NodeName, Id, Neighbors, Storage, []).%Backups). 
@@ -175,7 +175,7 @@ select_hi_proc([{IdN, PidN} | StorageProcs], {Id, Pid})->
 
 % hash function to uniformly distribute among 
 %% storage processes.
-hash(Str, TwoToTheM) when TwoToTheM >= 1 -> str_sum(Str) rem TwoToTheM;
+hash(Str, M) when M >= 0 -> str_sum(Str) rem round((math:pow(2, M)));;
 hash(_, _) -> -1.   %% error if no storage
       %% processes are open.
 
@@ -198,7 +198,7 @@ monitor_neighbor(Name, ParentPid) ->
       
 %% sum digits in string
 str_sum([]) -> 0;
-str_sum([X|XS]) -> $X + str_sum(XS).
+str_sum([X|XS]) -> X + str_sum(XS).
 
 %% compute TwoToTheM from 2^TwoToTheM
 compute_power2(N) when N < 2 -> 0;
