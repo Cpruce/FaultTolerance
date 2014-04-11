@@ -35,32 +35,40 @@ floor(X) ->
 init_store(M, NodeName, Id, Neighbors, Storage)->
   	global:register_name(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
 	println("Neighbors is ~p~n", [Neighbors]),
-	Backups = backup_neighbors(Id, Neighbors),
 	storage_serve(M, NodeName, Id, Neighbors, Storage, []).%Backups). 
 
 %% backup neighbors in the ring
-backup_neighbors(_Id, []) -> [];
-backup_neighbors(Id, [IdN | Neighbors]) -> 
+backup_neighbors(_Id, [], _Storage) -> [];
+backup_neighbors(Id, [IdN | Neighbors], Storage) -> 
 	RecvNeigh = list_to_atom("StorageProcess"++integer_to_list(IdN)),
-	println("Sending backup request to ~p~n", [RecvNeigh]),
+	println("StorageProcess~p sending backup request to ~p~n", [Id, RecvNeigh]),
     global:send(RecvNeigh, {self(), backup_request}),
-	receive 
+	backup_aux(Id, RecvNeigh, Neighbors, Storage).
+
+backup_aux(Id, RecvNeigh, Neighbors, Storage)->
+    receive
+     {Pid, backup_request} ->
+        % send storage back to be backed up
+        println("Received backup_request from ~p~n", [Pid]),
+        Pid ! {self(), backup_response, Storage},
+        backup_aux(Id, RecvNeigh, Neighbors, Storage); 
 	 {_Ref, backup_response, Backup} ->
 		% create backup
 		println("Backing up ~p~n", [RecvNeigh]),
 		% monitor to see if backup needs to register
 		monitor_neighbor(RecvNeigh, self()), 
-		backup_neighbors(Id, Neighbors)++[Backup];
+		backup_neighbors(Id, Neighbors, Storage)++[Backup];
 
 	 {_Ref, failure} ->
-		println("Neighbor ~p crashed. Moving on.~n", [IdN]),
-		backup_neighbors(Id, Neighbors)
-	end.
-
+		println("Neighbor ~p crashed. Moving on.~n", [RecvNeigh]),
+		backup_neighbors(Id, Neighbors, Storage)
+    end.
 %% primary storage service function; handles
 %% general communication and functionality.
 storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
     GlobalName = getStorageProcessName(Id),
+    Rnd = crypto:rand_uniform(50000, 500000),
+    println("listening for ~p...", [Rnd]),
     receive 
     	{Pid, Ref, store, Key, Value} ->
       		println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),
@@ -162,13 +170,20 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
 	
 	{Pid, backup_request} ->
 		% send storage back to be backed up
-		Pid ! {self(), backup_response, Storage},
+        println("Received backup_request from ~p~n", [Pid]),
+        Pid ! {self(), backup_response, Storage},
 		storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);
 
 	{_Ref, failure} -> 
 		println("Node crashed during computation. failure.~n"),
 	  	storage_serve(M, NodeName, Id, Neighbors, Storage, Backups)
-  end.
+    after 
+      Rnd ->
+        println("sdfsdfsd"),
+	    Backups = backup_neighbors(Id, Neighbors, Storage),
+        println("dsgdssds"),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups)
+end.
 
 %%% remove highest numbered process from list.
 %% tell it to exit.
