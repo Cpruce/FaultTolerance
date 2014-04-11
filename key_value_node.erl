@@ -160,7 +160,7 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
        [Connection] = get_adv(NeighborsNames), 
        NodeList = lists:sort(get_global_list(NeighborsNames, Connection, NodeName)),
        println("NodeList is ~p~n", [NodeList]),
-       {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {-1, 0, -1}, TwoToTheM),
+       {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {0, 0, 0}, TwoToTheM),
        [Id, PrevId, NextId, lists:sort(NodeList++[Id])];
      false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
 	     [0, -1, -1, [0]]
@@ -184,13 +184,21 @@ get_global_list(NeighborsNames, Neighbor, NodeName)->
 %% two Id's. NewId is half the greatest distance plus the 
 %% lower of the two Id's, mod 2^M.
 %% Assumption: NodeList is sorted.
-assign_id(_Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
-	{(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId};
+assign_id(Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
+	case Hd == 0 of
+        true ->
+            {TwoToTheM div 2, 0, 0};
+        false ->
+            {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
+    end;
 assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
 	% difference between last elem and the head
 	% only non-increasing difference (mod 2^M)
-	Dif = TwoToTheM - (IdN - Hd), 
-        case Dif > X of
+	println("Hd = ~p, IdN = ~p, PrevId = ~p, X = ~p, TwoToTheM = ~p", [Hd, IdN,
+            PrevId, X, TwoToTheM]),
+    Dif = TwoToTheM - (IdN - Hd), 
+    println("Dif is ~p", [Dif]), 
+    case Dif > X of
 		true ->
 			{(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
 		false ->
