@@ -165,7 +165,7 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
 %% gets global list of {Node, Id, Pid}'s
 get_global_list(NeighborsNames, Neighbor, NodeName)->
 	print("Sending request to ~p for the node list~n", [Neighbor]),
-	global:send(Neighbor, ["Adv:"++NodeName, node_list]),
+	global:send(Neighbor, [self(), node_list]),
 	receive
 		{Pid, node_list, NodeList} ->
 			print("Recieved node list from ~p~n", [Pid]),

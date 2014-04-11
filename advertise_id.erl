@@ -26,9 +26,9 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
 			print("Received Id request from ~p~n", [RetName]),
             global:send(RetName, [self(), Id]),
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive);
-		{RetName, node_list} ->
-			print("Received NodeList request from ~p~n", [RetName]),
-            global:send(RetName, [self(), node_list, Neighbors]),
+		{Pid, node_list} ->
+			print("Received NodeList request from ~p~n", [Pid]),
+            		Pid ! {self(), node_list,  Neighbors},
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)
 		%{Pid, snapshot, ToGet, SnapshotList} ->
 			% snapshot, 1st round. Each storage process in chord records its state
