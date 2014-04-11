@@ -71,6 +71,7 @@ node_enter(M, NodeName, Neighbors) ->
 	% contact known neighbor to get list of everyone.
         % assign id and balance load. End with advertising,
 	[Id, PrevId, NextId, NodeList] = global_processes_update(TwoToTheM, Neighbor, NodeName),
+	println("Id == ~p, PrevId == ~p, NextId == ~p, NodeList == ~p", [Id, PrevId, NextId, NodeList]),
 	case PrevId == -1 of
 	       true -> 
 		       StorageProcs = init_storage_processes(M, NodeName, TwoToTheM, 0),
