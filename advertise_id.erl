@@ -22,13 +22,13 @@ init_adv(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 %% wait for any Id, rebalancing, or neighbors list queries
 advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
 	receive
-		{Pid, id} ->
-			print("Received Id request from ~p~n", [Pid]),
-			Pid ! {self(), Id},
+		{RetName, id} ->
+			print("Received Id request from ~p~n", [RetName]),
+            global:send(RetName, [self(), Id]),
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive);
-		{Pid, node_list} ->
-			print("Received NodeList request from ~p~n", [Pid]),
-			Pid ! {self(), Neighbors},
+		{RetName, node_list} ->
+			print("Received NodeList request from ~p~n", [RetName]),
+            global:send(RetName, [self(), node_list, Neighbors]),
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)
 		%{Pid, snapshot, ToGet, SnapshotList} ->
 			% snapshot, 1st round. Each storage process in chord records its state

@@ -134,11 +134,10 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [Id] ++ init_storage_processes(M, NodeName, TwoToTheM, Id + 1). 
 
+%% grabs the first adversting process
 get_adv([])-> [];
 get_adv(Names)->
-    print("Hi"),
     Ind = string:str(atom_to_list(hd(Names)), "Adv:"),
-    print("hd of names is ~p~n", [Ind]),
     case Ind > 0 of
 		true ->
 			[hd(Names)];
@@ -166,8 +165,7 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
 %% gets global list of {Node, Id, Pid}'s
 get_global_list(NeighborsNames, Neighbor, NodeName)->
 	print("Sending request to ~p for the node list~n", [Neighbor]),
-	global:send(Neighbor, [NodeName, node_list]),
-	print("PASS"),
+	global:send(Neighbor, ["Adv:"++NodeName, node_list]),
 	receive
 		{Pid, node_list, NodeList} ->
 			print("Recieved node list from ~p~n", [Pid]),
