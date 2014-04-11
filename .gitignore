@@ -4,3 +4,5 @@
 *.beam
 *.dump
 *.swp
+writeup/*.aux
+writeup/*.gz

@@ -9,7 +9,7 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([storage_serve/4]).
+-export([storage_serve/4, hash/2]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -17,37 +17,50 @@
 %%                            Main Function
 %% ====================================================================
 
-%% find neighbor by Id
-find_neighbor([], _Id) -> [];
-find_neighbor(Neighbors, Id)->
-  {Name, IdN, _Pid} = hd(Neighbors),
-  case Id == IdN of
-    true ->
-      %% Id's match, return name.
-      [Name];
-    false ->
-      find_neighbor(tl(Neighbors), Id)
-  end.
+
+% getStorageProcessName/1
+% converts a storage process id to its globally registered name.
+getStorageProcessName(Id) ->
+  "StorageProcess" ++ integer_to_list(Id).
 
 %% primary storage service function; handles
 %% general communication and functionality.
 storage_serve(M, Id, Neighbors, Storage) ->
-  register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
+  GlobalName = getStorageProcessName(Id),
+  % register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
   receive 
     {Pid, Ref, store, Key, Value} ->
-      println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),  
-      case hash(Key, M) == Id of
+      println("Received store command at key ~p of value ~p from ~p~n", [Key, Value, Pid]),
+      HashValue = hash(Key, M),
+      println("Hashed value of the key: ~p", [HashValue]),
+      case HashValue == Id of
         % operation to be done at this process
         true ->
+          ok;
           % save old value, replace it, and send message back
-          Oldval = dict:fetch(Key, Storage),
-          NewStore = dict:store(Key, Value, Storage),
-          Pid ! {self(), stored, Oldval};
+          % Oldval = dict:fetch(Key, Storage),
+          % NewStore = dict:store(Key, Value, Storage),
+          % Pid ! {self(), stored, Oldval};
         % pass on computation
         false ->
-          % find and send to correct recipient
-          Recv = find_neighbor(Neighbors, Id),    %% ADD IN ONLY IF 'i + 2^k'
-          Recv ! {Pid, self(), store, Key, Value}
+          % determine the recipient to forward to -- see algorithm.pdf for how we get this number.
+          Diff = HashValue - Id,
+          DiffPositive = case Diff < 0 of
+            true -> Diff + round(math:pow(2, M));
+            false -> Diff
+          end,
+          % if r = 2^{a_s} + 2^{a_{s - 1}} + ...  where a_s > _{s - 1} > ...
+          % then we are trying to determine a_s, given r.
+          MaxPowerOfTwo = floor(math:log(DiffPositive) / math:log(2)),
+          ForwardedID = (Id + round(math:pow(2, MaxPowerOfTwo))) rem round(math:pow(2, M)),
+          ForwardedRecipient = getStorageProcessName(ForwardedID),
+          println("~s> The hash value does not match with this id. Forwarding the request to ~s...",
+            [GlobalName, ForwardedRecipient]),
+          println("Check globally registered names: ~p", [global:registered_names()]),
+          global:send(ForwardedRecipient, {Pid, Ref, store, Key, Value})
+          % Recv = find_neighbor(Neighbors, Id),    %% ADD IN ONLY IF 'i + 2^k'
+          % Recv ! {Pid, self(), store, Key, Value}
+          % global:send(Name, {"StorageProcess" ++ integer_to_list(Id), "Yo"})
       end;
     {Ref, stored, Oldval} -> ok;
     {Pid, Ref, retrieve, Key} -> ok;
@@ -58,17 +71,27 @@ storage_serve(M, Id, Neighbors, Storage) ->
     {Pid, Ref, node_list} -> ok;
     {Ref, result, Result} -> ok;
     {Ref, failure} -> ok
+    %{Name, "Hi there"} -> global:send(Name, {node(), "Yo"})
   end.
+
+% floor function, taken from http://schemecookbook.org/Erlang/NumberRounding
+floor(X) ->
+    T = erlang:trunc(X),
+    case (X - T) of
+        Neg when Neg < 0 -> T - 1;
+        Pos when Pos > 0 -> T;
+        _ -> T
+    end.
 
 %% hash function to uniformly distribute among 
 %% storage processes.
-hash(Str, M) when M >= 0 -> str_sum(Str) rem (math:pow(2, M));
+hash(Str, M) when M >= 0 -> str_sum(Str) rem round(math:pow(2, M));
 hash(_, _) -> -1.   %% error if no storage
       %% processes are open.
 
 %% sum digits in string
 str_sum([]) -> 0;
-str_sum([X|XS]) -> $X + str_sum(XS).
+str_sum([X|XS]) -> X + str_sum(XS).
 
 %% compute M from 2^M
 compute_power2(N) when N < 2 -> 0;

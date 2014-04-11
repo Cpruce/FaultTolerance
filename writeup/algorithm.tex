@@ -410,7 +410,29 @@ $p.gone$ $\leadsto$ (all other nodes detect and rebalance)
 
 \end{enumerate}
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+\section{Communication}
+For a storage process $i$ to send to storage process $j$, it sends 
+the message through the following path. Assume $i < j$. If $j < i$ we can replace $j$ with $2^m + j$ and do computation in modulo $2^m.$
 
+Let
+\[
+    j - i = 2^{a_t} + 2^{a_{t - 1}} + \ldots + 2^{a_0},
+\]
+where $a_t > a_{t - 1} > \cdots > a_0 \geq 0.$ This is equivalent to express the number $j - i$ in base 2. Then we design the message to go through the following path:
+\[
+    i \longrightarrow i + 2^{a_t} \longrightarrow i + 2^{a_t} + 2^{a_{t - 1}} \longrightarrow \cdots \longrightarrow 
+    i + 2^{a_t} + 2^{a_{t - 1}} + \ldots + 2^{a_0} = j,
+\]
+which is a valid path because each sender sends a message to its neighbor. Thus, for each step, storage process $r$ computes $j - r = 2^{a_s} + 2^{a_{s-1}} + \ldots + 2^{a_0}$ (where $0\leq s \leq t$) and sends to its neighbor that has id $r + 2^{a_s}$. Note that the value $a_s$ can be computed by
+\[
+    a_s = \left\lfloor \log_2(j - r) \right\rfloor,
+\]
+where $\left\lfloor \cdot \right\rfloor$ is the floor function, which gives the largest integer that is less than or equal to the given number. For example, if $i = 2$ and $j = 13,$ the following path happens:
+\[
+    2 \longrightarrow 2 + 2^{\left\lfloor \log_2(11) \right\rfloor} = 2 + 2^3 = 11  \longrightarrow 11 + 2^{\left\lfloor \log_2(2) \right\rfloor} = 11 + 2^1 = 13.
+\]
+
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 \section{Appendix: Relevant Code}
 \begin{lstlisting}
 TODO

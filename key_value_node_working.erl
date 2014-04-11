@@ -62,7 +62,7 @@ main(Params) ->
   case net_kernel:start([list_to_atom(NodeName), shortnames]) of
     {ok, _Pid} ->
       println("kernel started successfully with the shortnames " ++ NodeName),
-      println("~p", [node()]);
+      println("node() = ~p", [node()]);
     {error, TheReason} ->
       println("fail to start kernel! intended shortnames: " ++ NodeName),
       println("Reason: ~p", TheReason)
@@ -136,7 +136,7 @@ global_processes_update(M, [Neighbor]) ->
       timer:sleep(500),
       NeighborsNames = global:registered_names(),
       println("List of registered names is empty?: ~p", [NeighborsNames == []]),
-      println("List of registered names: ~p", [NeighborsNames]);
+      println("List of neighbors: ~p", [NeighborsNames]);
     false ->
       println("Could not connect to neighbor ~p", [Neighbor])
   end,
@@ -147,26 +147,26 @@ global_processes_update(M, [Neighbor]) ->
 %% two Id's. NewId is half the greatest distance plus the 
 %% lower of the two Id's, mod 2^M.
 %% Assumption: NodeList is sorted.
-assign_id(_Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
-  {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId};
-assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
-  % difference between last elem and the head
-  % only non-increasing difference (mod 2^M)
-  Dif = TwoToTheM - (IdN - Hd), 
-        case Dif > X of
-    true ->
-      {(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
-    false ->
-      {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
-  end;  
-assign_id(Hd, [IdM, IdN | NodeList], {PrevId, X, NextId}, TwoToTheM)->
-  Dif = IdN - IdM, % Id's are now guaranteed to be increasing
-  case Dif > X of
-    true -> 
-      assign_id(Hd, [IdN]++NodeList, {IdM, Dif, IdN}, TwoToTheM);
-    false ->
-      assign_id(Hd, [IdN]++NodeList, {PrevId, X, NextId}, TwoToTheM)
-  end.
+% assign_id(_Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
+%   {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId};
+% assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
+%   % difference between last elem and the head
+%   % only non-increasing difference (mod 2^M)
+%   Dif = TwoToTheM - (IdN - Hd), 
+%         case Dif > X of
+%     true ->
+%       {(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
+%     false ->
+%       {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
+%   end;  
+% assign_id(Hd, [IdM, IdN | NodeList], {PrevId, X, NextId}, TwoToTheM)->
+%   Dif = IdN - IdM, % Id's are now guaranteed to be increasing
+%   case Dif > X of
+%     true -> 
+%       assign_id(Hd, [IdN]++NodeList, {IdM, Dif, IdN}, TwoToTheM);
+%     false ->
+%       assign_id(Hd, [IdN]++NodeList, {PrevId, X, NextId}, TwoToTheM)
+%   end.
 
 %% ====================================================================
 %%                       Pretty Print Functions
