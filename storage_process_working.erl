@@ -9,7 +9,7 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([storage_serve/4, hash/2]).
+-export([init_store/4, hash/2]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -23,24 +23,40 @@
 getStorageProcessName(Id) ->
   "StorageProcess" ++ integer_to_list(Id).
 
+init_store(M, Id, Neighbors, Storage) ->
+  Table = ets:new(table, [ordered_set]),
+  % Backups = backup_neighbors(Id, Neighbors),
+  storage_serve(M, Id, Neighbors, Storage, Table).
+
 %% primary storage service function; handles
 %% general communication and functionality.
-storage_serve(M, Id, Neighbors, Storage) ->
+storage_serve(M, Id, Neighbors, Storage, Table) ->
   GlobalName = getStorageProcessName(Id),
   % register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
   receive 
     {Pid, Ref, store, Key, Value} ->
-      println("~s> Received store command at key ~p of value ~p from ~p~n", [GlobalName, Key, Value, Pid]),
+      println(""),
+      println("~s> Received store command at key ~p of value ~p from ~p", [GlobalName, Key, Value, Pid]),
       HashValue = hash(Key, M),
       println("Hashed value of the key: ~p", [HashValue]),
       case HashValue == Id of
         % operation to be done at this process
         true ->
-          ok;
           % save old value, replace it, and send message back
-          % Oldval = dict:fetch(Key, Storage),
-          % NewStore = dict:store(Key, Value, Storage),
-          % Pid ! {self(), stored, Oldval};
+          case ets:lookup(Table, Key) of
+            [] ->
+              % this means there is no key before.
+              ets:insert(Table, {Key, Value}),
+              println("{~p, ~p} stored. The key is brand new!", [Key, Value]),
+              Pid ! {Ref, stored, no_value};
+            [{_OldKey, OldValue}] ->
+              println("{~p, ~p} stored. The key existed before this store. The old value was ~p",
+                [OldValue, Key, Value]),
+              Pid ! {Ref, stored, OldValue};
+              _ ->
+              println("We should not arrive at this stage! This can mean" ++
+                "the table may be incorrectly set up to use multiset instead of set.")
+            end;
         % pass on computation
         false ->
           % determine the recipient to forward to -- see algorithm.pdf for how we get this number.
@@ -61,7 +77,8 @@ storage_serve(M, Id, Neighbors, Storage) ->
           % Recv = find_neighbor(Neighbors, Id),    %% ADD IN ONLY IF 'i + 2^k'
           % Recv ! {Pid, self(), store, Key, Value}
           % global:send(Name, {"StorageProcess" ++ integer_to_list(Id), "Yo"})
-      end;
+      end,
+      storage_serve(M, Id, Neighbors, Storage, Table);
     {Ref, stored, Oldval} -> ok;
     {Pid, Ref, retrieve, Key} -> ok;
     {Ref, retrieved, Value} -> ok;

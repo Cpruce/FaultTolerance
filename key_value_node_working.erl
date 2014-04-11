@@ -5,7 +5,7 @@
 %% @doc _D157R18U73_
 -module(key_value_node_working).
 
--import(storage_process_working, [storage_serve/4]).
+-import(storage_process_working, [init_store/4]).
 -import(non_storage_process, [run/0]).
 %% ====================================================================
 %%                             Public API
@@ -117,7 +117,7 @@ init_storage_processes(M, TwoToTheM, Id) ->
     [Id, pretty_print_list_of_nums(Neighbors)]),
   % spawn's arguments: Module, Function, Args
   % storate_serve's arguments: M, Id, Neighbors, Storage
-  Pid = spawn(storage_process_working, storage_serve, [M, Id, Neighbors, []]),
+  Pid = spawn(storage_process_working, init_store, [M, Id, Neighbors, []]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [{Id, Pid}] ++ init_storage_processes(M, TwoToTheM, Id + 1). 
 
