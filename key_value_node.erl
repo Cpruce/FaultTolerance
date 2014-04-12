@@ -5,7 +5,7 @@
 %% @doc _D157R18U73_
 -module(key_value_node).
 
--import(storage_process, [init_store/5]).
+-import(storage_process, [init_store/4]).
 -import(advertise_id, [init_adv/5]).
 %% ====================================================================
 %%                             Public API
@@ -71,6 +71,7 @@ node_enter(M, NodeName, Neighbors) ->
 	% contact known neighbor to get list of everyone.
         % assign id and balance load. End with advertising,
 	[Id, PrevId, NextId, NodeList] = global_processes_update(TwoToTheM, Neighbor, NodeName),
+	println("Id == ~p, PrevId == ~p, NextId == ~p, NodeList == ~p", [Id, PrevId, NextId, NodeList]),
 	case PrevId == -1 of
 	       true -> 
 		       StorageProcs = init_storage_processes(M, NodeName, TwoToTheM, 0),
@@ -78,12 +79,19 @@ node_enter(M, NodeName, Neighbors) ->
 			NodeNeighbors = prune_neighbors(NodeList, StorageProcs, 0, TwoToTheM, []),
 			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeNeighbors, StorageProcs, TwoToTheM]);
 	       false ->
-			StorageProcs = enter_load_balance(Id, PrevId, NextId, [], TwoToTheM),
-			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM])
+            RecvNeigh = getStorageProcessName(PrevId),
+			StorageProcs = enter_load_balance(M, NodeName, Id, RecvNeigh, PrevId, NextId, [], TwoToTheM),
+		    println("Received storage procs: ~p", [StorageProcs]),
+            % make sure new processes are backed up on appropriate neighbors
+            _Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM])
 	end,
 	ok;
       _ -> ok
   end.
+
+getStorageProcessName(Id) ->
+  "StorageProcess" ++ integer_to_list(Id).
+
 
 %% auxiliary function to get node that 
 %% storage process is on
@@ -113,12 +121,30 @@ prune_neighbors(NodeList, StorageProcs, K, TwoToTheM, Pruned)->
 	end.
 	
 %% retreive storage processes from other nodes
-enter_load_balance(Id, PrevId, NextId, Storage_Procs, TwoToTheM)->
+enter_load_balance(M, NodeName, Id, RecvNeigh, NextId, NextId, Storage_Procs, TwoToTheM) ->
+    []; 
+enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoToTheM)->
 	% send message to node with Id PrevId to get 
 	% storage processes [Id, NextId] including Id and 
 	% excluding NextId
-	
-	ok.
+    println("Sending rebalance request to ~p", [RecvNeigh]),
+    global:send(RecvNeigh, {self(), rebalance}),
+	receive
+        {Pid, rebalance_response, Storage, Backups, NewNeighbors} ->
+            Spid = spawn(storage_process, x_store, [M, NodeName, Ind,
+                    NewNeighbors, Storage, Backups]),  
+           println("Storage process ~p transfered! Its PID is ~p", [Id, Spid]),
+           enter_load_balance(M, NodeName, Id, RecvNeigh, Ind+1, NextId,
+               Storage_Procs, TwoToTheM);
+        {_Ref, failure} ->
+            println("Node down"),
+            enter_load_balance(M, NodeName, Id, RecvNeigh, Ind+1, NextId,
+               Storage_Procs, TwoToTheM);
+       _ ->
+           println("Received something else"),
+enter_load_balance(M, NodeName, Id, RecvNeigh, Ind+1, NextId,
+               Storage_Procs, TwoToTheM)
+    end.
 
 %% Case: if this node is the first node
 %% init storage processes. return tuple list of Ids with Pid's
@@ -132,7 +158,7 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
   % spawn's arguments are: Module, Function, Args
-  Pid = spawn(storage_process, init_store, [M, NodeName, Id, Neighbors, []]),
+  Pid = spawn(storage_process, init_store, [M, NodeName, Id, Neighbors]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [Id] ++ init_storage_processes(M, NodeName, TwoToTheM, Id + 1). 
 
@@ -159,7 +185,7 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
        [Connection] = get_adv(NeighborsNames), 
        NodeList = lists:sort(get_global_list(NeighborsNames, Connection, NodeName)),
        println("NodeList is ~p~n", [NodeList]),
-       {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {-1, 0, -1}, TwoToTheM),
+       {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {0, 0, 0}, TwoToTheM),
        [Id, PrevId, NextId, lists:sort(NodeList++[Id])];
      false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
 	     [0, -1, -1, [0]]
@@ -183,13 +209,21 @@ get_global_list(NeighborsNames, Neighbor, NodeName)->
 %% two Id's. NewId is half the greatest distance plus the 
 %% lower of the two Id's, mod 2^M.
 %% Assumption: NodeList is sorted.
-assign_id(_Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
-	{(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId};
+assign_id(Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
+	case Hd == 0 of
+        true ->
+            {TwoToTheM div 2, 0, 0};
+        false ->
+            {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
+    end;
 assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
 	% difference between last elem and the head
 	% only non-increasing difference (mod 2^M)
-	Dif = TwoToTheM - (IdN - Hd), 
-        case Dif > X of
+	println("Hd = ~p, IdN = ~p, PrevId = ~p, X = ~p, TwoToTheM = ~p", [Hd, IdN,
+            PrevId, X, TwoToTheM]),
+    Dif = TwoToTheM - (IdN - Hd), 
+    println("Dif is ~p", [Dif]), 
+    case Dif > X of
 		true ->
 			{(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
 		false ->
