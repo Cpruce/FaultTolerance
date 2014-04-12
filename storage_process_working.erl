@@ -28,19 +28,34 @@ init_store(M, Id, Neighbors, Storage) ->
   % Backups = backup_neighbors(Id, Neighbors),
   storage_serve(M, Id, Neighbors, Storage, Table).
 
+% calculate_forwarded_id/3
+% given the current ID and target ID and M, calculate the neigboring id to forward to.
+% see algorithm.pdf for how we get this number.
+calculate_forwarded_id(Id, Target, M) ->
+  Diff = Target - Id,
+  DiffPositive = case Diff < 0 of
+    true -> Diff + round(math:pow(2, M));
+    false -> Diff
+  end,
+  % if r:= DiffPositive = 2^{a_s} + 2^{a_{s - 1}} + ...  where a_s > _{s - 1} > ...
+  % then we are trying to determine a_s, given r.
+  MaxPowerOfTwo = floor(math:log(DiffPositive) / math:log(2)),
+  ForwardedID = (Id + round(math:pow(2, MaxPowerOfTwo))) rem round(math:pow(2, M)),
+  ForwardedID.
+
 %% primary storage service function; handles
 %% general communication and functionality.
 storage_serve(M, Id, Neighbors, Storage, Table) ->
   GlobalName = getStorageProcessName(Id),
+  println(""),
   % register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
   receive 
     % ============================== STORE ====================================
     {Pid, Ref, store, Key, Value} ->
-      println(""),
-      println("~s> Received store command at key ~p of value ~p from ~p",
-        [GlobalName, Key, Value, Pid]),
+      println("~s:~p> Received store command at key ~p of value ~p from ~p",
+        [GlobalName, Ref, Key, Value, Pid]),
       HashValue = hash(Key, M),
-      println("~s> Hashed value of the key: ~p", [GlobalName, HashValue]),
+      println("~s:~p> Hashed value of the key: ~p", [GlobalName, Ref, HashValue]),
       case HashValue == Id of
         true ->
           % operation to be done at this process
@@ -49,52 +64,93 @@ storage_serve(M, Id, Neighbors, Storage, Table) ->
             [] ->
               % this means there is no key before.
               ets:insert(Table, {Key, Value}),
-              println("~s> {~p, ~p} stored. The key is brand new!",
-                [GlobalName, Key, Value]),
+              println("~s:~p> {~p, ~p} stored. The key is brand new!",
+                [GlobalName, Ref, Key, Value]),
+              println("~s:~p> All of the key-value pairs stored by this storage process: ~p",
+                [GlobalName, Ref, ets:match(Table, '$0')]),
               Pid ! {Ref, stored, no_value};
 
             [{_OldKey, OldValue}] ->
-              println("~s> {~p, ~p} stored. The key existed before this store."
-                +++ "The old value was ~p", [GlobalName, OldValue, Key, Value]),
+              println("~s:~p> {~p, ~p} stored. The key existed before this store. "
+                ++ "The old value was ~p.", [GlobalName, Ref, OldValue, Key, Value]),
               Pid ! {Ref, stored, OldValue};
 
             _ ->
-              println("~s> We should not arrive at this stage! This can mean" ++
-                "the table may be incorrectly set up to use multiset instead of set.")
-            end;
+              println("~s:~p> We should not arrive at this stage! This can mean " ++
+                "the table may be incorrectly set up to use multiset instead of set.",
+                [GlobalName, Ref])
+          end;
 
         false ->
           % Pass on computation
-          % determine the recipient to forward to -- see algorithm.pdf for
-          % how we get this number.
-          Diff = HashValue - Id,
-          DiffPositive = case Diff < 0 of
-            true -> Diff + round(math:pow(2, M));
-            false -> Diff
-          end,
-          % if r = 2^{a_s} + 2^{a_{s - 1}} + ...  where a_s > _{s - 1} > ...
-          % then we are trying to determine a_s, given r.
-          MaxPowerOfTwo = floor(math:log(DiffPositive) / math:log(2)),
-          ForwardedID = (Id + round(math:pow(2, MaxPowerOfTwo))) rem round(math:pow(2, M)),
+          % determine the recipient to forward to 
+          ForwardedID = calculate_forwarded_id(Id, HashValue, M),
           ForwardedRecipient = getStorageProcessName(ForwardedID),
-          println("~s> The hash value does not match with this id. Forwarding the request to ~s...",
-            [GlobalName, ForwardedRecipient]),
+          println("~s:~p> The hash value does not match with this id. "
+            ++ "Forwarding the store request to ~s...",
+            [GlobalName, Ref, ForwardedRecipient]),
           % println("Check globally registered names: ~p", [global:registered_names()]),
           global:send(ForwardedRecipient, {Pid, Ref, store, Key, Value})
-      end;
+    end;
     % ============================== STORED ===================================
-    {_Ref, stored, OldValue} -> 
+    {Ref, stored, OldValue} -> 
       case OldValue == no_value of
         true -> 
-          println("~s> No previously stored value. Store successful.", [GlobalName]);
+          println("~s:~p> No previously stored value. Store successful.",
+            [GlobalName, Ref]);
         false ->
-          println("~s> The old value was ~p. Store successful.", [GlobalName, OldValue])
+          println("~s:~p> The old value was ~p. Store successful.",
+            [GlobalName, Ref, OldValue])
       end;
     % ============================== RETRIEVE =================================
     {Pid, Ref, retrieve, Key} ->
-      ok;
+      println("~s:~p> Received retrieve command at key ~p from ~p",
+        [GlobalName, Ref, Key, Pid]),
+      HashValue = hash(Key, M),
+      println("~s:~p> Hashed value of the key: ~p", [GlobalName, Ref, HashValue]),
+      case HashValue == Id of
+        true ->
+          % operation to be done at this process
+          % save old value, replace it, and send message back
+          case ets:lookup(Table, Key) of
+            [] ->
+              % this means there is no key before.
+              println("~s:~p> The key ~p did not exist in the system.",
+                [GlobalName, Ref, Key]),
+              Pid ! {Ref, retrieved, no_value};
+
+            [{_OldKey, Value}] ->
+              println("~s:~p> {~p, ~p} retrieved. The key existed in the system. "
+                ++ "The value is ~p", [GlobalName, Ref, Value, Key, Value]),
+              Pid ! {Ref, retrieved, Value};
+
+            _ ->
+              println("~s:~p> We should not arrive at this stage! This can mean" ++
+                "the table may be incorrectly set up to use multiset instead of set.",
+                [GlobalName, Ref])
+          end;
+
+        false ->
+          % Pass on computation
+          % determine the recipient to forward to 
+          ForwardedID = calculate_forwarded_id(Id, HashValue, M),
+          ForwardedRecipient = getStorageProcessName(ForwardedID),
+          println("~s:~p> The hash value does not match with this id. "
+            ++ "Forwarding the retrieve request to ~s...",
+            [GlobalName, Ref, ForwardedRecipient]),
+          % println("Check globally registered names: ~p", [global:registered_names()]),
+          global:send(ForwardedRecipient, {Pid, Ref, retrieve, Key})
+      end;
     % ============================== RETRIEVED ================================
-    {Ref, retrieved, Value} -> ok;
+    {Ref, retrieved, Value} ->
+      case Value == no_value of
+        true -> 
+          println("~s:~p> The key does not exist.",
+            [GlobalName, Ref]);
+        false ->
+          println("~s:~p> The value for the requested key is ~p.",
+            [GlobalName, Ref, Value])
+      end;
     % ============================= FIRST KEY =================================
     {Pid, Ref, first_key} -> ok;
     % ============================== LAST KEY =================================
