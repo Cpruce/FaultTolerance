@@ -50,7 +50,7 @@ loop_once() ->
   receive
     {Ref, stored, OldValue} ->
       case OldValue == no_value of
-        true -> 
+        true ->
           println("~s:~p> No previously stored value. Store successful", [GlobalName,
             Ref]);
         false ->
@@ -58,7 +58,7 @@ loop_once() ->
       end;
     {Ref, retrieved, Value} ->
       case Value == no_value of
-        true -> 
+        true ->
           println("~s:~p> The key does not exist.", [GlobalName, Ref]);
         false ->
           println("~s:~p> The value for the requested key is ~p.", [GlobalName, Ref, Value])

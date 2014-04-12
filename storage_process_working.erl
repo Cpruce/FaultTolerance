@@ -82,8 +82,8 @@ storage_serve(M, Id, Neighbors, Storage, Table) ->
           end;
 
         false ->
-          % Pass on computation
-          % determine the recipient to forward to 
+          % Pass on computation.
+          % Determine the recipient to forward to.
           ForwardedID = calculate_forwarded_id(Id, HashValue, M),
           ForwardedRecipient = getStorageProcessName(ForwardedID),
           println("~s:~p> The hash value does not match with this id. "
@@ -95,7 +95,7 @@ storage_serve(M, Id, Neighbors, Storage, Table) ->
     % ============================== STORED ===================================
     {Ref, stored, OldValue} -> 
       case OldValue == no_value of
-        true -> 
+        true ->
           println("~s:~p> No previously stored value. Store successful.",
             [GlobalName, Ref]);
         false ->
