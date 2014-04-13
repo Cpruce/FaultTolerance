@@ -55,7 +55,9 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
   println(""),
   % register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
   receive 
+    % =========================================================================
     % ============================== STORE ====================================
+    % =========================================================================
     {Pid, Ref, store, Key, Value} ->
       println("~s:~p > Received store command at key ~p of value ~p from ~p",
         [GlobalName, Ref, Key, Value, Pid]),
@@ -100,7 +102,10 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
           % println("Check globally registered names: ~p", [global:registered_names()]),
           global:send(ForwardedRecipient, {Pid, Ref, store, Key, Value})
     end;
+
+    % =========================================================================
     % ============================== STORED ===================================
+    % =========================================================================
     {Ref, stored, OldValue} -> 
       case OldValue == no_value of
         true ->
@@ -110,7 +115,10 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
           println("~s:~p > The old value was ~p. Store successful.",
             [GlobalName, Ref, OldValue])
       end;
+
+    % =========================================================================
     % ============================== RETRIEVE =================================
+    % =========================================================================
     {Pid, Ref, retrieve, Key} ->
       println("~s:~p > Received retrieve command at key ~p from ~p",
         [GlobalName, Ref, Key, Pid]),
@@ -149,7 +157,10 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
           % println("Check globally registered names: ~p", [global:registered_names()]),
           global:send(ForwardedRecipient, {Pid, Ref, retrieve, Key})
       end;
+
+    % =========================================================================
     % ============================== RETRIEVED ================================
+    % =========================================================================
     {Ref, retrieved, Value} ->
       println("~s:~p > Received a retrieved message.", [GlobalName, Ref]),
       case Value == no_value of
@@ -160,10 +171,14 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
           println("~s:~p > The value for the requested key is ~p.",
             [GlobalName, Ref, Value])
       end;
+
+    % =========================================================================
     % ============================= FIRST KEY =================================
+    % =========================================================================
     {Pid, Ref, first_key} ->
       println("~s:~p > Received first_key command.", [GlobalName, Ref]),
-      println("~s:~p > Forwarding a request to a helper request on the same process...", [GlobalName, Ref]),
+      println("~s:~p > Forwarding a request to a helper request on the same process...",
+        [GlobalName, Ref]),
       self() ! {self(), Ref, first_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
       storage_serve_once(M, Id, Neighbors, Storage, Table),
       receive
@@ -234,10 +249,14 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
       println("~s:~p > The first key for the next ~p processes starting from ~p is ~p",
         [GlobalName, Ref, LookAhead, GlobalName, Result]),
       Pid ! {Ref, first_key_result_for_the_next_k_processes_inclusive, Result};
+
+    % =========================================================================
     % ============================== LAST KEY =================================
+    % =========================================================================
     {Pid, Ref, last_key} ->
       println("~s:~p > Received last_key command.", [GlobalName, Ref]),
-      println("~s:~p > Forwarding a request to a helper request on the same process...", [GlobalName, Ref]),
+      println("~s:~p > Forwarding a request to a helper request on the same process...",
+        [GlobalName, Ref]),
       self() ! {self(), Ref, last_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
       storage_serve_once(M, Id, Neighbors, Storage, Table),
       receive
@@ -308,10 +327,14 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
       println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
         [GlobalName, Ref, LookAhead, GlobalName, Result]),
       Pid ! {Ref, last_key_result_for_the_next_k_processes_inclusive, Result};
+
+    % =========================================================================
     % ============================== NUM KEYS =================================
+    % =========================================================================
     {Pid, Ref, num_keys} ->
       println("~s:~p > Received num_keys command.", [GlobalName, Ref]),
-      println("~s:~p > Forwarding a request to a helper request on the same process...", [GlobalName, Ref]),
+      println("~s:~p > Forwarding a request to a helper request on the same process...",
+        [GlobalName, Ref]),
       self() ! {self(), Ref, num_keys_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
       storage_serve_once(M, Id, Neighbors, Storage, Table),
       receive
@@ -376,13 +399,25 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
       println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
         [GlobalName, Ref, LookAhead, GlobalName, Result]),
       Pid ! {Ref, num_keys_result_for_the_next_k_processes_inclusive, Result};
+
+    % =========================================================================
     % ============================== NODE LIST ================================
+    % =========================================================================
     {Pid, Ref, node_list} -> ok;
+
+    % =========================================================================
     % =============================== RESULT ==================================
+    % =========================================================================
     {Ref, result, Result} -> ok;
+
+    % =========================================================================
     % ============================== FAILURE ==================================
+    % =========================================================================
     {Ref, failure} -> ok;
+
+    % =========================================================================
     % ================================ LEAVE ==================================
+    % =========================================================================
     {Pid, Ref, leave} -> ok
   end.
 
