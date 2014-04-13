@@ -243,9 +243,10 @@ assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
     println("Dif is ~p", [Dif]), 
     case Dif > X of
 		true ->
-			{(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
+            %println("Id is now ~p", [IdN, 
+            {(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
 		false ->
-			{(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
+            {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
 	end;	
 assign_id(Hd, [IdM, IdN | NodeList], {PrevId, X, NextId}, TwoToTheM)->
 	Dif = IdN - IdM, % Id's are now guaranteed to be increasing
