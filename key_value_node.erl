@@ -79,8 +79,8 @@ node_enter(M, NodeName, Neighbors) ->
 			NodeNeighbors = prune_neighbors(NodeList, StorageProcs, 0, TwoToTheM, []),
 			_Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeNeighbors, StorageProcs, TwoToTheM]);
 	       false ->
-            RecvNeigh = getStorageProcessName(PrevId),
-			StorageProcs = enter_load_balance(M, NodeName, Id, RecvNeigh, PrevId, NextId, [], TwoToTheM),
+            RecvNeigh = getStorageProcessName(Id),
+			StorageProcs = enter_load_balance(M, NodeName, Id, RecvNeigh, Id, NextId, [], TwoToTheM),
 		    println("Received storage procs: ~p", [StorageProcs]),
             % make sure new processes are backed up on appropriate neighbors
             _Pid = spawn(advertise_id, init_adv, [Id, NodeName, NodeList, StorageProcs, TwoToTheM])
@@ -127,22 +127,28 @@ enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoTo
 	% send message to node with Id PrevId to get 
 	% storage processes [Id, NextId] including Id and 
 	% excluding NextId
+       %timer:sleep(500), % sleep for 0.5 seconds, need to wait until names are registered properly
+    Global = global:registered_names(),
+    println("Reg names are ~p", [Global]),
     println("Sending rebalance request to ~p", [RecvNeigh]),
-    global:send(RecvNeigh, {self(), rebalance}),
+    global:send(list_to_atom(RecvNeigh), {self(), rebalance}),
 	receive
         {Pid, rebalance_response, Storage, Backups, NewNeighbors} ->
             Spid = spawn(storage_process, x_store, [M, NodeName, Ind,
                     NewNeighbors, Storage, Backups]),  
-           println("Storage process ~p transfered! Its PID is ~p", [Id, Spid]),
-           enter_load_balance(M, NodeName, Id, RecvNeigh, Ind+1, NextId,
+           println("Storage process ~p transfered! Its PID is ~p", [Ind, Spid]),
+           NewRecv = getStorageProcessName(Ind+1),
+           [Ind]++enter_load_balance(M, NodeName, Id, NewRecv, Ind+1, NextId,
                Storage_Procs, TwoToTheM);
         {_Ref, failure} ->
             println("Node down"),
-            enter_load_balance(M, NodeName, Id, RecvNeigh, Ind+1, NextId,
+            % spawn the storage process on detection
+            NewRecv = getStorageProcessName(Id+1),
+            enter_load_balance(M, NodeName, Id, NewRecv, Ind+1, NextId,
                Storage_Procs, TwoToTheM);
        _ ->
            println("Received something else"),
-enter_load_balance(M, NodeName, Id, RecvNeigh, Ind+1, NextId,
+           enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId,
                Storage_Procs, TwoToTheM)
     end.
 
@@ -212,7 +218,7 @@ get_global_list(NeighborsNames, Neighbor, NodeName)->
 assign_id(Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
 	case Hd == 0 of
         true ->
-            {TwoToTheM div 2, 0, 0};
+            {TwoToTheM div 2, 0, TwoToTheM-1};
         false ->
             {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
     end;
