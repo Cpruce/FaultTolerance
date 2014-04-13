@@ -46,16 +46,21 @@ calculate_forwarded_id(Id, Target, M) ->
 %% primary storage service function; handles
 %% general communication and functionality.
 storage_serve(M, Id, Neighbors, Storage, Table) ->
+  storage_serve_once(M, Id, Neighbors, Storage, Table),
+  storage_serve(M, Id, Neighbors, Storage, Table).
+
+storage_serve_once(M, Id, Neighbors, Storage, Table) ->
   GlobalName = getStorageProcessName(Id),
+  TwoToTheM = round(math:pow(2, M)),
   println(""),
   % register(list_to_atom("StorageProcess" ++ integer_to_list(Id)), self()),
   receive 
     % ============================== STORE ====================================
     {Pid, Ref, store, Key, Value} ->
-      println("~s:~p> Received store command at key ~p of value ~p from ~p",
+      println("~s:~p > Received store command at key ~p of value ~p from ~p",
         [GlobalName, Ref, Key, Value, Pid]),
       HashValue = hash(Key, M),
-      println("~s:~p> Hashed value of the key: ~p", [GlobalName, Ref, HashValue]),
+      println("~s:~p > Hashed value of the key: ~p", [GlobalName, Ref, HashValue]),
       case HashValue == Id of
         true ->
           % operation to be done at this process
@@ -64,19 +69,22 @@ storage_serve(M, Id, Neighbors, Storage, Table) ->
             [] ->
               % this means there is no key before.
               ets:insert(Table, {Key, Value}),
-              println("~s:~p> {~p, ~p} stored. The key is brand new!",
+              println("~s:~p > {~p, ~p} stored. The key is brand new!",
                 [GlobalName, Ref, Key, Value]),
-              println("~s:~p> All of the key-value pairs stored by this storage process: ~p",
+              println("~s:~p > All of the key-value pairs stored by this storage process: ~p",
                 [GlobalName, Ref, ets:match(Table, '$0')]),
               Pid ! {Ref, stored, no_value};
 
             [{_OldKey, OldValue}] ->
-              println("~s:~p> {~p, ~p} stored. The key existed before this store. "
-                ++ "The old value was ~p.", [GlobalName, Ref, OldValue, Key, Value]),
+              ets:insert(Table, {Key, Value}),
+              println("~s:~p > {~p, ~p} stored. The key existed before this store. "
+                ++ "The old value was ~p.", [GlobalName, Ref, Key, Value, OldValue]),
+              println("~s:~p > All of the key-value pairs stored by this storage process: ~p",
+                [GlobalName, Ref, ets:match(Table, '$0')]),
               Pid ! {Ref, stored, OldValue};
 
             _ ->
-              println("~s:~p> We should not arrive at this stage! This can mean " ++
+              println("~s:~p > We should not arrive at this stage! This can mean " ++
                 "the table may be incorrectly set up to use multiset instead of set.",
                 [GlobalName, Ref])
           end;
@@ -86,7 +94,7 @@ storage_serve(M, Id, Neighbors, Storage, Table) ->
           % Determine the recipient to forward to.
           ForwardedID = calculate_forwarded_id(Id, HashValue, M),
           ForwardedRecipient = getStorageProcessName(ForwardedID),
-          println("~s:~p> The hash value does not match with this id. "
+          println("~s:~p > The hash value does not match with this id. "
             ++ "Forwarding the store request to ~s...",
             [GlobalName, Ref, ForwardedRecipient]),
           % println("Check globally registered names: ~p", [global:registered_names()]),
@@ -96,18 +104,18 @@ storage_serve(M, Id, Neighbors, Storage, Table) ->
     {Ref, stored, OldValue} -> 
       case OldValue == no_value of
         true ->
-          println("~s:~p> No previously stored value. Store successful.",
+          println("~s:~p > No previously stored value. Store successful.",
             [GlobalName, Ref]);
         false ->
-          println("~s:~p> The old value was ~p. Store successful.",
+          println("~s:~p > The old value was ~p. Store successful.",
             [GlobalName, Ref, OldValue])
       end;
     % ============================== RETRIEVE =================================
     {Pid, Ref, retrieve, Key} ->
-      println("~s:~p> Received retrieve command at key ~p from ~p",
+      println("~s:~p > Received retrieve command at key ~p from ~p",
         [GlobalName, Ref, Key, Pid]),
       HashValue = hash(Key, M),
-      println("~s:~p> Hashed value of the key: ~p", [GlobalName, Ref, HashValue]),
+      println("~s:~p > Hashed value of the key: ~p", [GlobalName, Ref, HashValue]),
       case HashValue == Id of
         true ->
           % operation to be done at this process
@@ -115,17 +123,17 @@ storage_serve(M, Id, Neighbors, Storage, Table) ->
           case ets:lookup(Table, Key) of
             [] ->
               % this means there is no key before.
-              println("~s:~p> The key ~p did not exist in the system.",
+              println("~s:~p > The key ~p did not exist in the system.",
                 [GlobalName, Ref, Key]),
               Pid ! {Ref, retrieved, no_value};
 
             [{_OldKey, Value}] ->
-              println("~s:~p> {~p, ~p} retrieved. The key existed in the system. "
+              println("~s:~p > {~p, ~p} retrieved. The key existed in the system. "
                 ++ "The value is ~p", [GlobalName, Ref, Value, Key, Value]),
               Pid ! {Ref, retrieved, Value};
 
             _ ->
-              println("~s:~p> We should not arrive at this stage! This can mean" ++
+              println("~s:~p > We should not arrive at this stage! This can mean" ++
                 "the table may be incorrectly set up to use multiset instead of set.",
                 [GlobalName, Ref])
           end;
@@ -135,7 +143,7 @@ storage_serve(M, Id, Neighbors, Storage, Table) ->
           % determine the recipient to forward to 
           ForwardedID = calculate_forwarded_id(Id, HashValue, M),
           ForwardedRecipient = getStorageProcessName(ForwardedID),
-          println("~s:~p> The hash value does not match with this id. "
+          println("~s:~p > The hash value does not match with this id. "
             ++ "Forwarding the retrieve request to ~s...",
             [GlobalName, Ref, ForwardedRecipient]),
           % println("Check globally registered names: ~p", [global:registered_names()]),
@@ -143,27 +151,364 @@ storage_serve(M, Id, Neighbors, Storage, Table) ->
       end;
     % ============================== RETRIEVED ================================
     {Ref, retrieved, Value} ->
+      println("~s:~p > Received a retrieved message.", [GlobalName, Ref]),
       case Value == no_value of
         true -> 
-          println("~s:~p> The key does not exist.",
+          println("~s:~p > The key does not exist.",
             [GlobalName, Ref]);
         false ->
-          println("~s:~p> The value for the requested key is ~p.",
+          println("~s:~p > The value for the requested key is ~p.",
             [GlobalName, Ref, Value])
       end;
     % ============================= FIRST KEY =================================
-    {Pid, Ref, first_key} -> ok;
+    {Pid, Ref, first_key} ->
+      println("~s:~p > Received first_key command.", [GlobalName, Ref]),
+      println("~s:~p > Forwarding a request to a helper request on the same process...", [GlobalName, Ref]),
+      self() ! {self(), Ref, first_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
+      storage_serve_once(M, Id, Neighbors, Storage, Table),
+      receive
+        {_NewRef, first_key_result_for_the_next_k_processes_inclusive, Result} ->
+          ListResult = case Result of
+            '$end_of_table' ->
+              [];
+            _ ->
+              [Result]
+          end,
+          Pid ! {Ref, result, ListResult}
+      end;
+
+    {Pid, Ref, first_key_for_the_next_k_processes_inclusive, LookAhead, NumLookAhead} ->
+      println("~s:~p > Received first_key_for_the_next_k_processes_inclusive command "
+        ++ "with lookahead (including self) of ~p and num lookahead of ~p.",
+        [GlobalName, Ref, LookAhead, NumLookAhead]),
+      Result = case NumLookAhead of
+        1 ->
+          ets:first(Table);
+        _ ->
+          % The summary table is more like a list, but we use an 
+          % ordered_set, duplicate_bag ets table for convenience.
+          % each element will be a singleton tuple
+          SummaryTable = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          % start with the first key from this process
+          ets:insert(SummaryTable, {ets:first(Table)}),
+          NeighborsWithLookAhead = [
+              {
+                % a tuple of size 3
+                (Id + round(math:pow(2, K))) rem TwoToTheM,
+                round(math:pow(2, K)),
+                % the number of processes to lookahead (including self)
+                K + 1
+              }
+              % we already lookahead at itself. So we will look ahead using
+              % the parameters [0, 1, 2, ..., NumLookAhead - 2],
+              % which has the total number of things in it being NumLookAhead - 2.
+              || K <- lists:seq(0, NumLookAhead - 2)
+          ],
+          println("~s:~p > Plan to send subcomputation requests to storage processes with id ~p",
+            [
+              GlobalName,
+              Ref,
+              lists:map(fun({A, _, _}) -> A end, NeighborsWithLookAhead)
+            ]
+          ),
+          % send a request to compute first key for the next LookAhead processes
+          lists:map(
+            fun({ProcessId, ProcessLookAhead, NumProcessesLookAhead}) -> 
+              TargetName = getStorageProcessName(ProcessId),
+              println("~s:~p > Sending subcomputation for the first_key request "
+                ++ "to ~p with lookahead (including self) of ~p and the number "
+                ++ "of processes (including self) to lookahead of ~p",
+                [GlobalName, Ref, TargetName, ProcessLookAhead, NumProcessesLookAhead]),
+              global:send(
+                TargetName,
+                {self(), make_ref(), first_key_for_the_next_k_processes_inclusive,
+                  ProcessLookAhead, NumProcessesLookAhead}
+              )
+            end,
+            NeighborsWithLookAhead
+          ),
+          % expect the table to eventually have LookAhead elements
+          wait_and_get_the_first_key(GlobalName, self(), Ref, SummaryTable, NumLookAhead)
+      end,
+      println(""),
+      println("~s:~p > The first key for the next ~p processes starting from ~p is ~p",
+        [GlobalName, Ref, LookAhead, GlobalName, Result]),
+      Pid ! {Ref, first_key_result_for_the_next_k_processes_inclusive, Result};
     % ============================== LAST KEY =================================
-    {Pid, Ref, last_key} -> ok;
+    {Pid, Ref, last_key} ->
+      println("~s:~p > Received last_key command.", [GlobalName, Ref]),
+      println("~s:~p > Forwarding a request to a helper request on the same process...", [GlobalName, Ref]),
+      self() ! {self(), Ref, last_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
+      storage_serve_once(M, Id, Neighbors, Storage, Table),
+      receive
+        {_NewRef, last_key_result_for_the_next_k_processes_inclusive, Result} ->
+          ListResult = case Result of
+            '$end_of_table' ->
+              [];
+            _ ->
+              [Result]
+          end,
+          Pid ! {Ref, result, ListResult}
+      end;
+
+    {Pid, Ref, last_key_for_the_next_k_processes_inclusive, LookAhead, NumLookAhead} ->
+      println("~s:~p > Received last_key_for_the_next_k_processes_inclusive command "
+        ++ "with lookahead (including self) of ~p and num lookahead of ~p.",
+        [GlobalName, Ref, LookAhead, NumLookAhead]),
+      Result = case NumLookAhead of
+        1 ->
+          ets:last(Table);
+        _ ->
+          % The summary table is more like a list, but we use an 
+          % ordered_set, duplicate_bag ets table for convenience.
+          % each element will be a singleton tuple
+          SummaryTable = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          % start with the last key from this process
+          ets:insert(SummaryTable, {ets:last(Table)}),
+          NeighborsWithLookAhead = [
+              {
+                % a tuple of size 3
+                (Id + round(math:pow(2, K))) rem TwoToTheM,
+                round(math:pow(2, K)),
+                % the number of processes to lookahead (including self)
+                K + 1
+              }
+              % we already lookahead at itself. So we will look ahead using
+              % the parameters [0, 1, 2, ..., NumLookAhead - 2],
+              % which has the total number of things in it being NumLookAhead - 2.
+              || K <- lists:seq(0, NumLookAhead - 2)
+          ],
+          println("~s:~p > Plan to send subcomputation requests to storage processes with id ~p",
+            [
+              GlobalName,
+              Ref,
+              lists:map(fun({A, _, _}) -> A end, NeighborsWithLookAhead)
+            ]
+          ),
+          % send a request to compute last key for the next LookAhead processes
+          lists:map(
+            fun({ProcessId, ProcessLookAhead, NumProcessesLookAhead}) -> 
+              TargetName = getStorageProcessName(ProcessId),
+              println("~s:~p > Sending subcomputation for the last_key request "
+                ++ "to ~p with lookahead (including self) of ~p and the number "
+                ++ "of processes (including self) to lookahead of ~p",
+                [GlobalName, Ref, TargetName, ProcessLookAhead, NumProcessesLookAhead]),
+              global:send(
+                TargetName,
+                {self(), make_ref(), last_key_for_the_next_k_processes_inclusive,
+                  ProcessLookAhead, NumProcessesLookAhead}
+              )
+            end,
+            NeighborsWithLookAhead
+          ),
+          % expect the table to eventually have LookAhead elements
+          wait_and_get_the_last_key(GlobalName, self(), Ref, SummaryTable, NumLookAhead)
+      end,
+      println(""),
+      println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
+        [GlobalName, Ref, LookAhead, GlobalName, Result]),
+      Pid ! {Ref, last_key_result_for_the_next_k_processes_inclusive, Result};
     % ============================== NUM KEYS =================================
-    {Pid, Ref, num_keys} -> ok;
+    {Pid, Ref, num_keys} ->
+      println("~s:~p > Received num_keys command.", [GlobalName, Ref]),
+      println("~s:~p > Forwarding a request to a helper request on the same process...", [GlobalName, Ref]),
+      self() ! {self(), Ref, num_keys_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
+      storage_serve_once(M, Id, Neighbors, Storage, Table),
+      receive
+        {_NewRef, num_keys_result_for_the_next_k_processes_inclusive, Result} ->
+          Pid ! {Ref, result, Result}
+      end;
+
+    {Pid, Ref, num_keys_for_the_next_k_processes_inclusive, LookAhead, NumLookAhead} ->
+      println("~s:~p > Received num_keys_for_the_next_k_processes_inclusive command "
+        ++ "with lookahead (including self) of ~p and num lookahead of ~p.",
+        [GlobalName, Ref, LookAhead, NumLookAhead]),
+      Result = case NumLookAhead of
+        1 ->
+          length(ets:match(Table, '$1'));
+        _ ->
+          % The summary table is more like a list, but we use an 
+          % ordered_set, duplicate_bag ets table for convenience.
+          % each element will be a singleton tuple
+          SummaryTable = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          % start with the last key from this process
+          ets:insert(SummaryTable, {length(ets:match(Table, '$1'))}),
+          NeighborsWithLookAhead = [
+              {
+                % a tuple of size 3
+                (Id + round(math:pow(2, K))) rem TwoToTheM,
+                round(math:pow(2, K)),
+                % the number of processes to lookahead (including self)
+                K + 1
+              }
+              % we already lookahead at itself. So we will look ahead using
+              % the parameters [0, 1, 2, ..., NumLookAhead - 2],
+              % which has the total number of things in it being NumLookAhead - 2.
+              || K <- lists:seq(0, NumLookAhead - 2)
+          ],
+          println("~s:~p > Plan to send subcomputation requests to storage processes with id ~p",
+            [
+              GlobalName,
+              Ref,
+              lists:map(fun({A, _, _}) -> A end, NeighborsWithLookAhead)
+            ]
+          ),
+          % send a request to compute last key for the next LookAhead processes
+          lists:map(
+            fun({ProcessId, ProcessLookAhead, NumProcessesLookAhead}) -> 
+              TargetName = getStorageProcessName(ProcessId),
+              println("~s:~p > Sending subcomputation for the num_keys request "
+                ++ "to ~p with lookahead (including self) of ~p and the number "
+                ++ "of processes (including self) to lookahead of ~p",
+                [GlobalName, Ref, TargetName, ProcessLookAhead, NumProcessesLookAhead]),
+              global:send(
+                TargetName,
+                {self(), make_ref(), num_keys_for_the_next_k_processes_inclusive,
+                  ProcessLookAhead, NumProcessesLookAhead}
+              )
+            end,
+            NeighborsWithLookAhead
+          ),
+          % expect the table to eventually have LookAhead elements
+          wait_and_get_num_keys(GlobalName, self(), Ref, SummaryTable, NumLookAhead)
+      end,
+      println(""),
+      println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
+        [GlobalName, Ref, LookAhead, GlobalName, Result]),
+      Pid ! {Ref, num_keys_result_for_the_next_k_processes_inclusive, Result};
     % ============================== NODE LIST ================================
     {Pid, Ref, node_list} -> ok;
+    % =============================== RESULT ==================================
     {Ref, result, Result} -> ok;
-    {Ref, failure} -> ok
-    %{Name, "Hi there"} -> global:send(Name, {node(), "Yo"})
-  end,
-  storage_serve(M, Id, Neighbors, Storage, Table).
+    % ============================== FAILURE ==================================
+    {Ref, failure} -> ok;
+    % ================================ LEAVE ==================================
+    {Pid, Ref, leave} -> ok
+  end.
+
+
+wait_and_get_the_first_key(GlobalName, Pid, Ref, Table, ExpectedLength) ->
+  println(""),
+  println("~s:~p > [first_key subcalculation] Waiting...", [GlobalName, Ref]),
+  println("~s:~p > Current length of the results returned to this process: ~p",
+    [GlobalName, Ref, length(ets:match(Table, '$1'))]),
+  println("~s:~p > Things in the table of results returned to this process: ~p",
+    [GlobalName, Ref, ets:match(Table, '$1')]),
+  println("~s:~p > Expected length of the results returned to this process: ~p",
+    [GlobalName, Ref, ExpectedLength]),
+
+  case length(ets:match(Table, '$1')) of
+    ExpectedLength ->
+      println("~s:~p > Quorum reached!", [GlobalName, Ref]),
+      ets:delete(Table, '$end_of_table'),
+      println("~s:~p > After deleting '$end_of_table', the table looks like: ~p",
+        [GlobalName, Ref, ets:match(Table, '$1')]),
+      % -- BEGIN: The following lines should not be necessary had ets:first worked properly ---
+      AllElementsUnparsed = ets:match(Table, '$1'),
+      AllElementsParsed = lists:map(fun([{A}]) -> A end, AllElementsUnparsed),
+      SortedList = lists:sort(AllElementsParsed),
+      Result = case SortedList of
+        [] ->
+          '$end_of_table';
+        _ ->
+          hd(SortedList)
+      end,
+      % -- END: The lines above should not be necessary had ets:first worked properly ---
+      % Result = ets:first(Table),
+      println("~s:~p > The first key for the next ~p processes starting from ~p is ~p",
+        [GlobalName, Ref, ExpectedLength, GlobalName, Result]),
+      Result;
+    _ ->
+      receive
+        {NewRef, first_key_result_for_the_next_k_processes_inclusive, PartialResult} ->
+          println("~s:~p > Received a partial result! It is ~p.",
+            [GlobalName, NewRef, PartialResult]),
+          ets:insert(Table, {PartialResult}),
+          wait_and_get_the_first_key(GlobalName, Pid, Ref, Table, ExpectedLength);
+        {NewRef, failure} ->
+          % propagate failure
+          Pid ! {NewRef, failure}
+      end
+  end.
+
+wait_and_get_the_last_key(GlobalName, Pid, Ref, Table, ExpectedLength) ->
+  println(""),
+  println("~s:~p > [last_key subcalculation] Waiting...", [GlobalName, Ref]),
+  println("~s:~p > Current length of the results returned to this process: ~p",
+    [GlobalName, Ref, length(ets:match(Table, '$1'))]),
+  println("~s:~p > Things in the table of results returned to this process: ~p",
+    [GlobalName, Ref, ets:match(Table, '$1')]),
+  println("~s:~p > Expected length of the results returned to this process: ~p",
+    [GlobalName, Ref, ExpectedLength]),
+
+  case length(ets:match(Table, '$1')) of
+    ExpectedLength ->
+      println("~s:~p > Quorum reached!", [GlobalName, Ref]),
+      ets:delete(Table, '$end_of_table'),
+      println("~s:~p > After deleting '$end_of_table', the table looks like: ~p",
+        [GlobalName, Ref, ets:match(Table, '$1')]),
+      % -- BEGIN: The following lines should not be necessary had ets:last worked properly ---
+      AllElementsUnparsed = ets:match(Table, '$1'),
+      AllElementsParsed = lists:map(fun([{A}]) -> A end, AllElementsUnparsed),
+      SortedList = lists:sort(AllElementsParsed),
+      Result = case SortedList of
+        [] ->
+          '$end_of_table';
+        _ ->
+          lists:last(SortedList)
+      end,
+      % -- END: The lines above should not be necessary had ets:last worked properly ---
+      % Result = ets:last(Table),
+      println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
+        [GlobalName, Ref, ExpectedLength, GlobalName, Result]),
+      Result;
+    _ ->
+      receive
+        {NewRef, last_key_result_for_the_next_k_processes_inclusive, PartialResult} ->
+          println("~s:~p > Received a partial result! It is ~p.",
+            [GlobalName, NewRef, PartialResult]),
+          ets:insert(Table, {PartialResult}),
+          wait_and_get_the_last_key(GlobalName, Pid, Ref, Table, ExpectedLength);
+        {NewRef, failure} ->
+          % propagate failure
+          Pid ! {NewRef, failure}
+      end
+  end.
+
+wait_and_get_num_keys(GlobalName, Pid, Ref, Table, ExpectedLength) ->
+  println(""),
+  println("~s:~p > [num_keys subcalculation] Waiting...", [GlobalName, Ref]),
+  println("~s:~p > Current length of the results returned to this process: ~p",
+    [GlobalName, Ref, length(ets:match(Table, '$1'))]),
+  println("~s:~p > Things in the table of results returned to this process: ~p",
+    [GlobalName, Ref, ets:match(Table, '$1')]),
+  println("~s:~p > Expected length of the results returned to this process: ~p",
+    [GlobalName, Ref, ExpectedLength]),
+
+  case length(ets:match(Table, '$1')) of
+    ExpectedLength ->
+      println("~s:~p > Quorum reached!", [GlobalName, Ref]),
+      ets:delete(Table, '$end_of_table'),
+      println("~s:~p > After deleting '$end_of_table', the table looks like: ~p",
+        [GlobalName, Ref, ets:match(Table, '$1')]),
+      AllElementsUnparsed = ets:match(Table, '$1'),
+      AllElementsParsed = lists:map(fun([{A}]) -> A end, AllElementsUnparsed),
+      Result = lists:sum(AllElementsParsed),
+      println("~s:~p > The num keys for the next ~p processes starting from ~p is ~p",
+        [GlobalName, Ref, ExpectedLength, GlobalName, Result]),
+      Result;
+    _ ->
+      receive
+        {NewRef, num_keys_result_for_the_next_k_processes_inclusive, PartialResult} ->
+          println("~s:~p > Received a partial result! It is ~p.",
+            [GlobalName, NewRef, PartialResult]),
+          ets:insert(Table, {PartialResult}),
+          wait_and_get_num_keys(GlobalName, Pid, Ref, Table, ExpectedLength);
+        {NewRef, failure} ->
+          % propagate failure
+          Pid ! {NewRef, failure}
+      end
+  end.
 
 % floor function, taken from http://schemecookbook.org/Erlang/NumberRounding
 floor(X) ->
@@ -183,8 +528,3 @@ hash(_, _) -> -1.   %% error if no storage
 %% sum digits in string
 str_sum([]) -> 0;
 str_sum([X|XS]) -> X + str_sum(XS).
-
-%% compute M from 2^M
-compute_power2(N) when N < 2 -> 0;
-compute_power2(N) -> 
-  1 + compute_power2(math:pow(N, 1/2)).

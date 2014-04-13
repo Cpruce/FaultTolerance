@@ -8,7 +8,13 @@
 
 inialize(FullNodeName) ->
   net_kernel:start([external_controller, shortnames]),
-  net_kernel:connect(list_to_atom(FullNodeName)),
+  case net_kernel:connect(list_to_atom(FullNodeName)) of
+    true ->
+      println("Connected to ~p successfully.", [FullNodeName]);
+    false ->
+      println("Error: Cannot connect to ~p! Please try again", [FullNodeName]),
+      halt()
+  end,
   GlobalName = list_to_atom("ExternalController1"),
   global:register_name(GlobalName, self()),
   % sleep for 0.5 seconds -- we need to wait until it successfully registers
@@ -31,9 +37,10 @@ send_store_request(Key, Value) ->
       hd(tl(RegisteredNames))
   end,
   % println("~s> Registered names: ~p", [GlobalName, RegisteredNames]),
-  println("~s:~p> Sending a store request with {~p, ~p}...",
+  println("~s:~p > Sending a store request with {~p, ~p}...",
     [GlobalName, Ref, Key, Value]),
   global:send(StorageName, {self(), Ref, store, Key, Value}).
+
 
 send_retrieve_request(Key) ->
   GlobalName = "ExternalControllerRetrieve1",
@@ -41,9 +48,38 @@ send_retrieve_request(Key) ->
   RegisteredNames = global:registered_names(),
   StorageName = hd(tl(tl(tl(RegisteredNames)))), % pick one storage process 'randomly'
   % println("~s> Registered names: ~p", [GlobalName, RegisteredNames]),
-  println("~s:~p> Sending a retrieve request with key ~p...",
+  println("~s:~p > Sending a retrieve request with key ~p...",
     [GlobalName, Ref, Key]),
   global:send(StorageName, {self(), Ref, retrieve, Key}).
+
+
+send_first_key_request() ->
+  GlobalName = "ExternalControllerSendFirstKey1",
+  Ref = make_ref(),
+  RegisteredNames = global:registered_names(),
+  StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
+  % println("~s> Registered names: ~p", [GlobalName, RegisteredNames]),
+  println("~s:~p > Sending a first_key request...", [GlobalName, Ref]),
+  global:send(StorageName, {self(), Ref, first_key}).
+
+
+send_last_key_request() ->
+  GlobalName = "ExternalControllerSendLastKey1",
+  Ref = make_ref(),
+  RegisteredNames = global:registered_names(),
+  StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
+  % println("~s> Registered names: ~p", [GlobalName, RegisteredNames]),
+  println("~s:~p > Sending a last_key request...", [GlobalName, Ref]),
+  global:send(StorageName, {self(), Ref, last_key}).
+
+send_num_keys_request() ->
+  GlobalName = "ExternalControllerSendNumKeys1",
+  Ref = make_ref(),
+  RegisteredNames = global:registered_names(),
+  StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
+  % println("~s> Registered names: ~p", [GlobalName, RegisteredNames]),
+  println("~s:~p > Sending a num_keys request...", [GlobalName, Ref]),
+  global:send(StorageName, {self(), Ref, num_keys}).
 
 loop_once() ->
   GlobalName = "ExternalControllerGeneral1",
@@ -51,20 +87,21 @@ loop_once() ->
     {Ref, stored, OldValue} ->
       case OldValue == no_value of
         true ->
-          println("~s:~p> No previously stored value. Store successful", [GlobalName,
-            Ref]);
+          println("~s:~p > No previously stored value. Store successful", [GlobalName, Ref]);
         false ->
-          println("~s:~p> Old value was ~p. Store successful.", [GlobalName, Ref, OldValue])
+          println("~s:~p > Old value was ~p. Store successful.", [GlobalName, Ref, OldValue])
       end;
     {Ref, retrieved, Value} ->
       case Value == no_value of
         true ->
-          println("~s:~p> The key does not exist.", [GlobalName, Ref]);
+          println("~s:~p > The key does not exist.", [GlobalName, Ref]);
         false ->
-          println("~s:~p> The value for the requested key is ~p.", [GlobalName, Ref, Value])
+          println("~s:~p > The value for the requested key is ~p.", [GlobalName, Ref, Value])
       end;
+    {Ref, result, Result} ->
+      println("~s:~p > The result is ~p", [GlobalName, Ref, Result]);
     _ ->
-      println("Bad response!")
+      println("~s > Error: Bad response!", [GlobalName])
   end,
   halt().
 
@@ -75,17 +112,49 @@ loop_once() ->
 main(Params) ->
   FullNodeName = hd(Params),
   Action = hd(tl(Params)),
+  TheRest = tl(tl(Params)),
   inialize(FullNodeName),
   case Action of
     "store" ->
-      Key =  hd(tl(tl(Params))),
-      Value =  hd(tl(tl(tl(Params)))),
-      send_store_request(Key,Value);
+      case length(TheRest) of
+        2 ->
+          Key =  hd(TheRest),
+          Value =  hd(tl(TheRest)),
+          send_store_request(Key, Value);
+        _ ->
+          halt("Error: There should be exactly two parameters after the keyword 'store'")
+      end;
     "retrieve" ->
-      Key =  hd(tl(tl(Params))),
-      send_retrieve_request(Key);
+      case length(TheRest) of
+        1 ->
+          Key =  hd(TheRest),
+          send_retrieve_request(Key);
+        _ ->
+          halt("Error: There should be exactly one parameter after the keyword 'retrieve'")
+      end;
+    "first_key" ->
+      case length(TheRest) of
+        0 ->
+          send_first_key_request();
+        _ ->
+          halt("Error: There should be no parameters after the keyword 'first_key'")
+      end;
+    "last_key" ->
+      case length(TheRest) of
+        0 ->
+          send_last_key_request();
+        _ ->
+          halt("Error: There should be no parameters after the keyword 'last_key'")
+      end;
+    "num_keys" ->
+      case length(TheRest) of
+        0 ->
+          send_num_keys_request();
+        _ ->
+          halt("Error: There should be no parameters after the keyword 'num_keys'")
+      end;
     _ ->
-      println("Not a valid action.")
+      halt("Error: Not a valid action.")
   end,
   % if you want an infinite loop, use loop() instead.
   loop_once().
