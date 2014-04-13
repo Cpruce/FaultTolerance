@@ -144,12 +144,10 @@ corypruce@gmail.com}
 We need to develop and implement an algorithm for the distributed key-value storage system, which involves distributed computations such as snapshot algorithms when the external world asks a question about the entire system. The system must be fault tolerant, correct, highly available, and reasonably fast.
 \end{problem}
 
-Our snapshot algorithm is based on the Chandy-Lamport algorithm.
-
 
 \section{The Algorithm}
 \subsection{A set of states}
-Each of the processes must be in one of the following 6 states:
+Each of the processes must be in one of the following 4 states:
 \newcommand{\numStates}{4}
 \newcommand{\joining}{\textit{joining} }
 \newcommand{\available}{\textit{available} }
@@ -166,12 +164,7 @@ Each of the processes must be in one of the following 6 states:
 
 
 \subsection{Information Stored by Each Process}
-In the Erlang syntax, the $\texttt{TODO}$ function's header represents
-the information stored by each process:
-\begin{lstlisting}
-TODO(<state>, Node, Neighbors)
-\end{lstlisting}
-In other words, a process $p$ contains the following information:
+A process $p$ contains the following information:
 \begin{enumerate}
 \item $p.m$ ($m$): the parameter $m$.
 \item $p.state$ ($\langle\texttt{state}\rangle$): one of the \numStates states outlined above.
@@ -336,7 +329,7 @@ Now we need to define what should happen when a process $p$ receives an incoming
 
 \item \label{A:no_invalid_signals} External controllers will not send duplicate or invalid control signals.
 
-\item \label{A:E_guarantees_nodes_entering_network} If a process $p_1$ receives a joining request from another process $p_2$, external controllers will not send signals to ask $p_1$ to leave until $p_2$ successfully joins the network.
+\item More assumptions are listed on page 6 of the assignment.
 \end{enumerate}
 
 \subsection{Misc.}
@@ -505,6 +498,10 @@ str_sum([X|XS]) -> X + str_sum(XS).
   \end{lstlisting}
 \end{algorithm}
 
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+\section{Fault Tolerance}
+We run out of time to write this part, but we have that implemented. Basically one table is duplicated to store among all its neighbors.
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 \section{Proof of Correctness}
 
 
@@ -523,74 +520,66 @@ $p$ is given the state of $joining$ in which the process $p$ is requesting to jo
 
 This requirement is satisfied because $p$ can be constantly trying to join the party but may be waiting infinitely or it can be granted the state of available (which is the only initial state in the party).
 
-\item {\it p.available} {\bfseries next} {\it (p.available $\vee$ p.white $\vee$ p.leaving)}
+\item {\it p.available} {\bfseries next} {\it (p.available $\vee$ p.leaving)}
 
-When available, the process $p$ can continue \available, the external controller can issue the order to become white, or the controller may tell the process to leave. No other "state" transitions are available to the process at the $available$ state. 
-
-\item {\it p.white} {\bfseries next} {\it (p.white $\vee$ p.red $\vee$ p.leaving)}
-
-If a process $p$ is told by the external controller to become \emph{white}, then it may be told to leave, it may become \emph{red} due to its white nature, or $p$ may remain \emph{white}. 
-
-\item {\it p.red} {\bfseries next} {\it (p.red $\vee$ p.available $\vee$ p.leaving)}
-
-If a process $p$ is $red$, then only three cases are possible to the process. First, nothing may happen and the process will continue $red$. Second, the external controller can tell the process to \texttt{stop\_ red}, in which $p$ would become $available$. Third, the external controller can also tell the process to \texttt{leave}, in which $p$ would become $leaving$. No other transitions are available at this stage.
+When available, the process $p$ can continue \available, or \leaving. No other "state" transitions are available to the process at the $available$ state. 
 
 \item {\it p.leaving} {\bfseries next} {\it (p.leaving $\vee$ p.gone)}
 
-When a process $p$ has been told to leave by the external controller, it is destined to leave thus may continue its cleanup and remain in the $leaving$ stage or the process could complete the $leaving$ state and leave, successfully terminating and entering the $gone$ state.
+When a process $p$ has been told to leave by the external controller or crashes, it is destined to leave thus may continue its cleanup and remain in the $leaving$ stage or the process could complete the $leaving$ state and leave, successfully terminating and entering the $gone$ state.
 
 \item {\it p.gone} {\bfseries next} {\it (p.gone)}
 
 When a process $p$ is $gone$, the process may not join again (implying it may not reach anymore states) and thus is in the fixed state of $gone$.
 
-\item {\it p.red} $\Rightarrow \langle \forall q | q \in p.neighbors \rhd \neg q.red \rangle$
-(when a process $p$ is $red$, none of its neighbors is $red$)
-
-When a process $p$ is $red$, then it holds all of its forks that it shares with its neighbors and since a process needs all of the forks it shares with its neighbors, that process with the forks will be the only one red.
-
-
-\item \label{S:mutual_neighbors} {\it (p.available $\vee$ p.white $\vee$ p.red)} $\Rightarrow \langle \forall q | q \in p.neighbors \rhd p \in q.neighbors \rangle$
-(when a process $p$ is $available$, $white$, or $red$, each of $p$'s neighbors knows that $p$ is one of its neighbors)
-
-After joining, a leaving process $q$ knows its neighbors and in each state $available$, $white$, or $red$, the neighbors list is updated if a neighbor leaves. Thus, each state has a real-time copy of the neighboring processes.
-
-Before the process $q$ can leave or remove a neighbor $p$ who is either $available$, $white$, or $red$ from $q.neighbors$, we guarantee that $p$ remove $q$ first.
-
-\item {\it p.gone} $\Rightarrow \langle \forall q  \rhd p\not\in q.neighbors \rangle$
-(when a process $p$ is $gone$, it is not in any other process's set of neighbors)
-
-If $p$ is \emph{gone}, from our algorithm we know that $p.neighbors = \emptyset$. From this fact and from the safety property S\ref{S:mutual_neighbors}, we know that if $q$ is $available$, $white$, or $red$, then $p$ cannot be a neighbor $q$. If $q$ is \emph{leaving} or \emph{gone}, $q.neighbors = \emptyset$ so $p\not\in q.neighbors.$ If $q$ is \emph{joining}, $p$ cannot possibly be a neighbor of $q$ due to our Assumption A\ref{A:E_guarantees_nodes_entering_network} that guarantees joining processes to be able to enter the network. Hence, we have covered all cases.
-
 
 
 \item When a storage process $p$ receives a store/retrieve message with key $k$, if $k = p.id$, then it performs an action. If not, then it forwards the request to an apppropriate process.
 
+This is true due to our algorithm.
 \item $1 \leq n:= \#(\text{nodes}) \leq 2^m.$
 
+This is true due to our algorithm.
 \item $node_i.id \neq node_j.id$ if $i\neq j$ for all $0\leq i,j \leq n - 1.$ 
 
+This is true due to our algorithm.
 \item $node_i.id \in \{0,1,2,\ldots, 2^m - 1\}$ for all $0\leq i \leq n - 1.$ 
 
+This is true due to our load balancing algorithm.
 \item Without loss of generality, we can let
 $0 \leq node_1.id < node_2.id < \cdots < node_n.id \leq 2^m - 1.$
 Then, for $i= 0, 1, \ldots, n - 1,$ $node_i$ hosts the storage processes with ids in the set $\{node_i.id, node_i.id + 1, node_i.id + 2, \ldots, node_{i+1}.id - 1\}$ in modulo $2^m$ calculation and with the notation $node_{n} = node_0.$
 
+This is true due to our load balancing algorithm.
 \item All storage processes are named in the global Erlang name registry.
 
+This is true due to our algorithm.
 \item Each node must register at least one non-storage process (so that the node is always discoverable).
 
-
+This is true due to our algorithm.
 \item If $\#(\text{nodes}) = n < 2^m$, then a new node can always join the system.
 
 \item A storage process can communicate to another storage process only if they are neighbors.
 
+This is true due to our algorithm.
 \item  A storage process can communicate to a non-storage process only if they are in the same node.
 
+This is true due to our algorithm.
 \item A non-storage process can communicate to a storage process only if they are in the same node.
 
+This is true due to our algorithm.
 \item  A non-storage process in node $i$ can communicate to a non-storage process only if it is in the nodes that host neighbors of the storage processes hosted by node $i$.
 
+This is true due to our algorithm.
 \item Every message from the outside world (except for \texttt{leave}) must be responded to except for when relevant processes crash.
+
+This is true due to our algorithm.
+
+\item If storing is succesful, num\_keys should not change.
+
+\item If storing is not succesful, num\_keys should increase by one.
+
+\item retrieve should not change num\_keys.
 \end{enumerate}
 
 
