@@ -46,14 +46,26 @@ main(Params) ->
   % parameter is the registered name of anoter node.
   NeighborsList = tl(tl(Params)),
   Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, NeighborsList),
-  case Neighbors == [] of
-      true -> println("This node has no neighbors. It must be the first node.");      false -> println("This node knows ~p~n", [Neighbors]) 
+  case length(Neighbors) of
+    0 ->
+      println("This node has no neighbors. It must be the first node.");
+    1 ->
+      println("Neighbors = ~p", [Neighbors]);
+    _ ->
+      halt("There cannot be more than one neighbor to connect to!")
   end,
-  % IMPORTANT: Start the epmd daemon!
+% IMPORTANT: Start the epmd daemon!
   os:cmd("epmd -daemon"),
   % format microseconds of timestamp to get an
   % effectively-unique node name
-  net_kernel:start([list_to_atom(NodeName), shortnames]),
+  case net_kernel:start([list_to_atom(NodeName), shortnames]) of
+    {ok, _Pid} ->
+      println("kernel started successfully with the shortnames " ++ NodeName),
+      println("node() = ~p", [node()]);
+    {error, TheReason} ->
+      println("fail to start kernel! intended shortnames: " ++ NodeName),
+      println("Reason: ~p", TheReason)
+  end,
   % begin storage service 
   node_enter(M, NodeName, Neighbors).
 
@@ -160,9 +172,7 @@ init_storage_processes(0, _NodeName,  _, _Id) -> [];
 init_storage_processes(_M, _NodeName, TwoToTheM, TwoToTheM) -> [];
 init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
-  println("TwoToTheM = ~p and 10 rem 8 is ~p~n", [TwoToTheM, 10 rem 8]),
   Neighbors = [ (Id + round(math:pow(2, K))) rem TwoToTheM || K <-lists:seq(0, M - 1)],
-  println("Neighbs = ~p~n", [Neighbors]),
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
   % spawn's arguments are: Module, Function, Args
@@ -289,3 +299,10 @@ print(To_Print) ->
 % print/2
 print(To_Print, Options) ->
   io:format(get_formatted_time() ++ ": " ++ To_Print, Options).
+
+% pretty_print_list_of_nums/1
+% The parameter is a list L. If L = [1, 2, 3], it returns "[1, 2, 3]".
+pretty_print_list_of_nums(L) ->
+    StringList = lists:map(fun(Num) -> integer_to_list(Num) end, L),
+    "[" ++ string:join(StringList, ", ") ++ "]".
+
