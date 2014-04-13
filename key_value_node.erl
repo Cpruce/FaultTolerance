@@ -46,14 +46,26 @@ main(Params) ->
   % parameter is the registered name of anoter node.
   NeighborsList = tl(tl(Params)),
   Neighbors = lists:map(fun(Node) -> list_to_atom(Node) end, NeighborsList),
-  case Neighbors == [] of
-      true -> println("This node has no neighbors. It must be the first node.");      false -> println("This node knows ~p~n", [Neighbors]) 
+  case length(Neighbors) of
+    0 ->
+      println("This node has no neighbors. It must be the first node.");
+    1 ->
+      println("Neighbors = ~p", [Neighbors]);
+    _ ->
+      halt("There cannot be more than one neighbor to connect to!")
   end,
-  % IMPORTANT: Start the epmd daemon!
+% IMPORTANT: Start the epmd daemon!
   os:cmd("epmd -daemon"),
   % format microseconds of timestamp to get an
   % effectively-unique node name
-  net_kernel:start([list_to_atom(NodeName), shortnames]),
+  case net_kernel:start([list_to_atom(NodeName), shortnames]) of
+    {ok, _Pid} ->
+      println("kernel started successfully with the shortnames " ++ NodeName),
+      println("node() = ~p", [node()]);
+    {error, TheReason} ->
+      println("fail to start kernel! intended shortnames: " ++ NodeName),
+      println("Reason: ~p", TheReason)
+  end,
   % begin storage service 
   node_enter(M, NodeName, Neighbors).
 
@@ -121,7 +133,7 @@ prune_neighbors(NodeList, StorageProcs, K, TwoToTheM, Pruned)->
 	end.
 	
 %% retreive storage processes from other nodes
-enter_load_balance(M, NodeName, Id, RecvNeigh, NextId, NextId, Storage_Procs, TwoToTheM) ->
+enter_load_balance(_M, _NodeName, _Id, _RecvNeigh, NextId, NextId,  _Storage_Procs, _TwoToTheM) ->
     []; 
 enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoToTheM)->
 	% send message to node with Id PrevId to get 
@@ -134,17 +146,18 @@ enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoTo
     global:send(list_to_atom(RecvNeigh), {self(), rebalance}),
 	receive
         {Pid, rebalance_response, Storage, Backups, NewNeighbors} ->
-            Spid = spawn(storage_process, x_store, [M, NodeName, Ind,
-                    NewNeighbors, Storage, Backups]),  
+            Spid = spawn(storage_process, x_store, [M, NodeName, Ind, NewNeighbors, Storage, Backups]),  
            println("Storage process ~p transfered! Its PID is ~p", [Ind, Spid]),
-           NewRecv = getStorageProcessName(Ind+1),
-           [Ind]++enter_load_balance(M, NodeName, Id, NewRecv, Ind+1, NextId,
+           Next = (Ind+1) rem TwoToTheM,
+           NewRecv = getStorageProcessName(Next),
+           [Ind]++enter_load_balance(M, NodeName, Id, NewRecv, Next, NextId,
                Storage_Procs, TwoToTheM);
         {_Ref, failure} ->
             println("Node down"),
             % spawn the storage process on detection
-            NewRecv = getStorageProcessName(Id+1),
-            enter_load_balance(M, NodeName, Id, NewRecv, Ind+1, NextId,
+            Next = (Ind+1) rem TwoToTheM,
+            NewRecv = getStorageProcessName(Next),
+            enter_load_balance(M, NodeName, Id, NewRecv, Next, NextId,
                Storage_Procs, TwoToTheM);
        _ ->
            println("Received something else"),
@@ -158,9 +171,7 @@ init_storage_processes(0, _NodeName,  _, _Id) -> [];
 init_storage_processes(_M, _NodeName, TwoToTheM, TwoToTheM) -> [];
 init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
-  println("TwoToTheM = ~p and 10 rem 8 is ~p~n", [TwoToTheM, 10 rem 8]),
   Neighbors = [ (Id + round(math:pow(2, K))) rem TwoToTheM || K <-lists:seq(0, M - 1)],
-  println("Neighbs = ~p~n", [Neighbors]),
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
   % spawn's arguments are: Module, Function, Args
@@ -231,9 +242,10 @@ assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
     println("Dif is ~p", [Dif]), 
     case Dif > X of
 		true ->
-			{(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
+            %println("Id is now ~p", [IdN, 
+            {(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
 		false ->
-			{(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
+            {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
 	end;	
 assign_id(Hd, [IdM, IdN | NodeList], {PrevId, X, NextId}, TwoToTheM)->
 	Dif = IdN - IdM, % Id's are now guaranteed to be increasing
@@ -287,3 +299,10 @@ print(To_Print) ->
 % print/2
 print(To_Print, Options) ->
   io:format(get_formatted_time() ++ ": " ++ To_Print, Options).
+
+% pretty_print_list_of_nums/1
+% The parameter is a list L. If L = [1, 2, 3], it returns "[1, 2, 3]".
+pretty_print_list_of_nums(L) ->
+    StringList = lists:map(fun(Num) -> integer_to_list(Num) end, L),
+    "[" ++ string:join(StringList, ", ") ++ "]".
+
