@@ -22,6 +22,6 @@ erl -env ERL_MAX_ETS_TABLES=100000 -noshell -run key_value_node main 3 ct_node1
 
 
 Our test console can be found here:
-https://gist.github.com/anonymous/9e6c6287bc30e0d2d2e8
+https://gist.github.com/tummykung/3ed57af6d7ed3bf8eccd
 
 We don't have much time to do node list testing, but otherwise we tested quite thoroughly.
