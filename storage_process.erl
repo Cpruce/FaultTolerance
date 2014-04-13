@@ -29,7 +29,6 @@ x_store(M, NodeName, Id, Neighbors, Storage, Backups)->
     Regname =list_to_atom("StorageProcess" ++ integer_to_list(Id)), 
     case lists:member(Regname, Global) of
         true ->
-            println("ev -> true"),
             timer:sleep(200);
         false ->
             continue
@@ -225,7 +224,7 @@ backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, first_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, Id, Neighbors, Storage, Backups),
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Backups),
       receive
         {_NewRef, first_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -305,7 +304,7 @@ backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, last_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, Id, Neighbors, Storage, Storage),
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Storage),
       receive
         {_NewRef, last_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -385,7 +384,7 @@ backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, num_keys_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, Id, Neighbors, Storage, Storage),
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Storage),
       receive
         {_NewRef, num_keys_result_for_the_next_k_processes_inclusive, Result} ->
           Pid ! {Ref, result, Result}
@@ -470,7 +469,21 @@ backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups) ->
     % ================================ LEAVE ==================================
     % =========================================================================
     {Pid, Ref, leave} -> backup_neighbors(M, NodeName, Id, Neighbors, Storage, Backups);
-    {Pid, rebalance} ->
+    {Pid, check, Name} -> 
+        %println("Neighbor ~p went missing", [Name]),
+        %println("Storage is ~p", [Storage]),
+        %ToReg = ets:lookup(Storage, Name),
+        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors, ToReg, []]),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    {Pid, missing, Name} -> 
+        %println("Neighbor ~p went missing", [Name]),
+        %println("Storage is ~p", [Storage]),
+        %ToReg = ets:lookup(Storage, Name),
+        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
+         %       ToReg, []]),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);     
+    
+{Pid, rebalance} ->
 			println("Received rebalance request from ~p~n", [Pid]),
         global:send(Pid, {self(), rebalance_response, Storage, Backups,
                 Neighbors}),
@@ -486,7 +499,7 @@ backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups) ->
 
 end.
 
-storage_serve_once(M, Id, Neighbors, Storage, Backups) ->
+storage_serve_once(M, NodeName, Id, Neighbors, Storage, Backups) ->
   GlobalName = getStorageProcessName(Id),
   TwoToTheM = round(math:pow(2, M)),
   println(""),
@@ -617,7 +630,7 @@ storage_serve_once(M, Id, Neighbors, Storage, Backups) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, first_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, Id, Neighbors, Storage, Backups),
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Backups),
       receive
         {_NewRef, first_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -695,7 +708,7 @@ storage_serve_once(M, Id, Neighbors, Storage, Backups) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, last_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, Id, Neighbors, Storage, Backups),
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Backups),
       receive
         {_NewRef, last_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -773,7 +786,7 @@ storage_serve_once(M, Id, Neighbors, Storage, Backups) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, num_keys_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, Id, Neighbors, Storage, Backups),
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Backups),
       receive
         {_NewRef, num_keys_result_for_the_next_k_processes_inclusive, Result} ->
           Pid ! {Ref, result, Result}
@@ -836,7 +849,20 @@ storage_serve_once(M, Id, Neighbors, Storage, Backups) ->
       println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
         [GlobalName, Ref, LookAhead, GlobalName, Result]),
       Pid ! {Ref, num_keys_result_for_the_next_k_processes_inclusive, Result};
-
+    
+    {Pid, check, Name} -> 
+        %println("Neighbor ~p went missing", [Name]),
+        %ToReg = ets:lookup(Storage, Name),
+        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
+         %       ToReg, []]),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    {Pid, missing, Name} -> 
+        %println("Neighbor ~p went missing", [Name]),
+        %ToReg = ets:lookup(Storage, Name),
+        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
+         %       ToReg, []]),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);     
+    
     % =========================================================================
     % ============================== NODE LIST ================================
     % =========================================================================
@@ -999,7 +1025,7 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, first_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, Id, Neighbors, Storage, Storage),
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Storage),
       receive
         {_NewRef, first_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -1078,7 +1104,7 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, last_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, Id, Neighbors, Storage, Storage),
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Storage),
       receive
         {_NewRef, last_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -1157,7 +1183,7 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, num_keys_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, Id, Neighbors, Storage, Storage),
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Storage),
       receive
         {_NewRef, num_keys_result_for_the_next_k_processes_inclusive, Result} ->
           Pid ! {Ref, result, Result}
@@ -1238,8 +1264,21 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
     % =========================================================================
     % ================================ LEAVE ==================================
     % =========================================================================
-    {Pid, Ref, leave} -> storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
-   {Pid, rebalance} ->
+    {Pid, Ref, leave} -> 
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    {Pid, check, Name} -> 
+        %println("Neighbor ~p went missing", [Name]),
+        %ToReg = ets:lookup(Storage, Name),
+        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
+         %       ToReg, []]),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    {Pid, missing, Name} -> 
+        %println("Neighbor ~p went missing", [Name]),
+        %ToReg = ets:lookup(Storage, Name),
+        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
+                %ToReg, []]),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);     
+    {Pid, rebalance} ->
 		println("Received rebalance request from ~p, ~p moving to that node",
             [Pid, Id]),
         Pid ! {self(), rebalance_response, Storage, Backups, Neighbors},

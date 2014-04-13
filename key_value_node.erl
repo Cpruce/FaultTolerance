@@ -146,8 +146,7 @@ enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoTo
     global:send(list_to_atom(RecvNeigh), {self(), rebalance}),
 	receive
         {Pid, rebalance_response, Storage, Backups, NewNeighbors} ->
-            Spid = spawn(storage_process, x_store, [M, NodeName, Ind,
-                    NewNeighbors, Storage, Backups]),  
+            Spid = spawn(storage_process, x_store, [M, NodeName, Ind, NewNeighbors, Storage, Backups]),  
            println("Storage process ~p transfered! Its PID is ~p", [Ind, Spid]),
            Next = (Ind+1) rem TwoToTheM,
            NewRecv = getStorageProcessName(Next),
