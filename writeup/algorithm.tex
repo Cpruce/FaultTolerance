@@ -1,4 +1,50 @@
- \documentclass[11pt]{article}
+\documentclass[11pt]{article}
+%\documentclass[conference]{IEEEtran}
+ 
+% \bibliographystyle{IEEEtran}
+
+%\ifCLASSINFOpdf
+% \usepackage[pdftex]{graphicx}
+%  % declare the path(s) where your graphic files are
+%  % \graphicspath{{../pdf/}{../jpeg/}}
+%  % and their extensions so you won't have to specify these with
+%  % every instance of \includegraphics
+%  % \DeclareGraphicsExtensions{.pdf,.jpeg,.png}
+%\else
+%  % or other class option (dvipsone, dvipdf, if not using dvips). graphicx
+%  % will default to the driver specified in the system graphics.cfg if no
+%  % driver is specified.
+%  % \usepackage[dvips]{graphicx}
+%  % declare the path(s) where your graphic files are
+%  % \graphicspath{{../eps/}}
+%  % and their extensions so you won't have to specify these with
+%  % every instance of \includegraphics
+%  % \DeclareGraphicsExtensions{.eps}
+%\fi
+%% graphicx was written by David Carlisle and Sebastian Rahtz. It is
+%% required if you want graphics, photos, etc. graphicx.sty is already
+%% installed on most LaTeX systems. The latest version and documentation can
+%% be obtained at: 
+%% http://www.ctan.org/tex-archive/macros/latex/required/graphics/
+%% Another good source of documentation is "Using Imported Graphics in
+%% LaTeX2e" by Keith Reckdahl which can be found as epslatex.ps or
+%% epslatex.pdf at: http://www.ctan.org/tex-archive/info/
+
+
+\usepackage{algorithm}% http://ctan.org/pkg/algorithms
+\usepackage{algpseudocode}% http://ctan.org/pkg/algorithmicx
+\usepackage{lipsum}% http://ctan.org/pkg/lipsum
+\usepackage{subfigure}
+
+\newcommand{\mysmallarraydecl}{\renewcommand{
+ \IEEEeqnarraymathstyle}{\scriptscriptstyle}
+ \renewcommand{\IEEEeqnarraytextstyle}{\scriptsize}
+ \renewcommand{\baselinestretch}{1.1}
+ \settowidth{\normalbaselineskip}{\scriptsize \hspace{\baselinestretch\baselineskip}}
+ \setlength{\baselineskip}{\normalbaselineskip}
+ \setlength{\jot}{0.25\normalbaselineskip}
+ \setlength{\arraycolsep}{2pt}} 
+
 \usepackage{amsmath, amssymb, enumerate, mathpazo, mathrsfs, fancyhdr, mathrsfs, graphicx, framed, float}
 \usepackage[tmargin = 1in, lmargin = 1.1in, rmargin = 1in, bmargin = 1in]{geometry}
 %%%%%%%%%%%%%%%%%%%%%%% IMPORTANT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -10,23 +56,24 @@
 \usepackage{color}
 \usepackage{listings}
 \lstset{ %
-language=erlang,            % choose the language of the code
-basicstyle=\footnotesize,   % the size of the fonts that are used for the code
-numbers=left,               % where to put the line-numbers
-numberstyle=\footnotesize,  % the size of the fonts that are used for the line-numbers
-stepnumber=1,               % the step between two line-numbers. If it is 1 each line will be numbered
-numbersep=5pt,              % how far the line-numbers are from the code
-backgroundcolor=\color{white}, % choose the background color. You must add \usepackage{color}
-showspaces=false,           % show spaces adding particular underscores
-showstringspaces=false,     % underline spaces within strings
-showtabs=false,             % show tabs within strings adding particular underscores
-frame=single,               % adds a frame around the code
-tabsize=2,                  % sets default tabsize to 2 spaces
-captionpos=b,               % sets the caption-position to bottom
-breaklines=true,            % sets automatic line breaking
-breakatwhitespace=false,    % sets if automatic breaks should only happen at whitespace
-escapeinside={\%*}{*)} % if you want to add a comment within your code
+    language=erlang,               % choose the language of the code
+    basicstyle=\footnotesize,      % the size of the fonts that are used for the code
+    numbers=left,                  % where to put the line-numbers
+    numberstyle=\footnotesize,     % the size of the fonts that are used for the line-numbers
+    stepnumber=1,                  % the step between two line-numbers. If it is 1 each line will be numbered
+    numbersep=5pt,                 % how far the line-numbers are from the code
+    backgroundcolor=\color{white}, % choose the background color. You must add \usepackage{color}
+    showspaces=false,              % show spaces adding particular underscores
+    showstringspaces=false,        % underline spaces within strings
+    showtabs=false,                % show tabs within strings adding particular underscores
+    frame=single,                  % adds a frame around the code
+    tabsize=2,                     % sets default tabsize to 2 spaces
+    captionpos=b,                  % sets the caption-position to bottom
+    breaklines=true,               % sets automatic line breaking
+    breakatwhitespace=false,       % sets if automatic breaks should only happen at whitespace
+    escapeinside={\%*}{*)}         % if you want to add a comment within your code
 }
+
 
 %%% MACROS
 \newcommand{\pic}[2]{\begin{center}\includegraphics[scale=#1]{#2}\end{center}}
@@ -48,7 +95,6 @@ escapeinside={\%*}{*)} % if you want to add a comment within your code
 \renewcommand{\theenumii}{\roman{enumii}}
 \renewcommand{\labelenumii}{\theenumii.}
 
-\title{The Algorithm for the Distributed Key-Value Storage Problem}
 
 %%% PROBLEM ENVIRONMENT
 \newenvironment{problem}[1]{
@@ -64,6 +110,25 @@ escapeinside={\%*}{*)} % if you want to add a comment within your code
 \hfill$\square$}
 
 \begin{document}
+
+\title{The Algorithm for the Distributed Key-Value Storage Problem}
+% author names and affiliations
+% use a multiple column layout for up to three different
+% affiliations
+\author{
+\IEEEauthorblockN{\textbf{Sorathan Chaturapruek}}
+\IEEEauthorblockA{Computer Science and Mathematics\\
+Harvey Mudd College\\
+Claremont, CA\\
+tum_chaturapruek@hmc.edu}
+\and
+\IEEEauthorblockN{\textbf{Cory Pruce}}
+\IEEEauthorblockA{Computer Science\\
+Harvey Mudd College\\
+Claremont, CA\\
+corypruce@gmail.com}
+}
+
 \pagestyle{fancy}
 
 \lhead{Tum C., Cory P.
@@ -85,20 +150,18 @@ Our snapshot algorithm is based on the Chandy-Lamport algorithm.
 \section{The Algorithm}
 \subsection{A set of states}
 Each of the processes must be in one of the following 6 states:
-\newcommand{\numStates}{six}
-\newcommand{\joining}{\textit{joining}}
-\newcommand{\available}{\textit{available}}
-\newcommand{\leaving}{\textit{leaving}}
-\newcommand{\gone}{\textit{gone}}
-\newcommand{\red}{\textit{red}}
-\newcommand{\white}{\textit{white}}
+\newcommand{\numStates}{4}
+\newcommand{\joining}{\textit{joining} }
+\newcommand{\available}{\textit{available} }
+\newcommand{\leaving}{\textit{leaving} }
+\newcommand{\gone}{\textit{gone} }
+\newcommand{\red}{\textit{gathering\_facts} }
+\newcommand{\white}{\textit{backing\_up} }
 \begin{enumerate}
 \item \joining
 \item \available
 \item \leaving
 \item \gone
-\item \red
-\item \white
 \end{enumerate}
 
 
@@ -120,46 +183,55 @@ In other words, a process $p$ contains the following information:
 We categorize messages by its sender and its receiver:
 \subsubsection{From Storage Processes to Storage Processes}
 \begin{enumerate}[M1]
-\item \label{M:fork} Lots of messages going on here.
+\item a \{$pid$, $ref$, \texttt{first\_key\_for\_the\_next\_k\_processes\_inclusive}, $lookahead$, $num\_lookahead$\} message, sent from a storage process $i$ to a storage process $j$ to ask $j$ to compute the first key among storage processes $j, j + 1, \ldots, j + lookahead - 1.$ The value $num\_lookahead$ is an actual number that the process $j$ will make further call, which is a much smaller number than $lookahead$, since it will call helper functions in a similar fashion.
+\item a \{$ref$, \texttt{first\_key\_result\_for\_the\_next\_k\_processes\_inclusive}, $result$\} message, sent from a storage process $j$ to a storage process $i$ which asked $j$ to compute the first key among storage processes $j, j + 1, \ldots, j + lookahead - 1.$
+
+
+\item a \{$pid$, $ref$, \texttt{last\_key\_for\_the\_next\_k\_processes\_inclusive}, $lookahead$, $num\_lookahead$\} message, sent from a storage process $i$ to a storage process $j$ to ask $j$ to compute the last key among storage processes $j, j + 1, \ldots, j + lookahead - 1.$ The value $num\_lookahead$ is an actual number that the process $j$ will make further call, which is a much smaller number than $lookahead$, since it will call helper functions in a similar fashion.
+\item a \{$ref$, \texttt{last\_key\_result\_for\_the\_next\_k\_processes\_inclusive}, $result$\} message, sent from a storage process $j$ to a storage process $i$ which asked $j$ to compute the last key among storage processes $j, j + 1, \ldots, j + lookahead - 1.$
+
+\item a \{$pid$, $ref$, \texttt{num\_keys\_for\_the\_next\_k\_processes\_inclusive}, $lookahead$, $num\_lookahead$\} message, sent from a storage process $i$ to a storage process $j$ to ask $j$ to compute the number of keys among storage processes $j, j + 1, \ldots, j + lookahead - 1.$ The value $num\_lookahead$ is an actual number that the process $j$ will make further call, which is a much smaller number than $lookahead$, since it will call helper functions in a similar fashion.
+\item a \{$ref$, \texttt{num\_keys\_result\_for\_the\_next\_k\_processes\_inclusive}, $result$\} message, sent from a storage process $j$ to a storage process $i$ which asked $j$ to compute the number of keys among storage processes $j, j + 1, \ldots, j + lookahead - 1.$
 \end{enumerate}
 
 \subsubsection{From Storage Processes to Non-Storage Processes}
 \begin{enumerate}[M1]
 \setcounter{enumi}{6}
-\item \label{M:become_white} something.
+\item We haven't done the detail of this part, but we think that it will need to send a \texttt{node\_name} message to know which node the storage process is running in. This will be used in the \texttt{node\_list} request.
 \end{enumerate}
 
 \subsubsection{From Non-Storage Processes to Storage Processes}
 \begin{enumerate}[M1]
-\setcounter{enumi}{9}
-\item 
+\setcounter{enumi}{7}
+\item The reply of what a node name the storage process is running in.
 \end{enumerate}
 
 \subsubsection{From Non-Storage Processes to Non-Storage Processes}
 \begin{enumerate}[M1]
-\setcounter{enumi}{9}
+\setcounter{enumi}{8}
 \newcommand{\becomeRed}{\texttt{become\_red}}
-\item a {\becomeRed} message.
+\item A request to compute \texttt{node\_list}. Alternatively, we can make a linked list of the nodes. That is, each node knows its sucessor node. It passes the \texttt{node\_list} request among the circle until it reaches the original requester. Then we get a complete node list and report back to the external world.
 \end{enumerate}
 
 
 \subsubsection{From Processes to External Controllers}
 \begin{enumerate}[M1]
-\setcounter{enumi}{9}
+\setcounter{enumi}{8}
 \newcommand{\stored}{\texttt{stored}}
 \newcommand{\retrieved}{\texttt{retrieved}}
 \newcommand{\result}{\texttt{result}}
 \newcommand{\failure}{\texttt{failure}}
 
-\item a {\stored} message.
-\item a {\retrieved} message.
-\item a {\result} message.
-\item a {\failure} message.
+\item a \{$ref$, \stored, $key$, $value$\} message, sent to the pid from a store request, with the ref from the request, to confirm that the store operation took place and overwrote the previously stored value old-value. If there was no previously stored \textit{value}, old-value should be the atom \texttt{no\_value}. world to store value for key.
+\item a \{$ref$, \retrieved, $value$\} message, sent to the pid from a retrieve request, with the ref from the request, to indicate that value is stored for the request’s \textit{key}; if no value is stored for \textit{key}, value should be the atom \texttt{no\_value}.
+\item a \{$ref$, \texttt{result}, \result\} message,
+sent to the pid from a \texttt{first\_key}, \texttt{last\_key}, \texttt{num\_keys}, or \texttt{node\_list} request, with the ref from the request, to communicate the result. In the case of \texttt{first\_key}, \texttt{last\_key} and \texttt{node\_numbers} the result will be a list; in the case of \texttt{num\_keys}, it will be an integer.
+\item a \{$ref$, \failure\} message, sent to the pid from a request to indicate that the request failed. This is an optional, polite way to tell the outside world that a request failed rather than simply letting the outside world time out.
 \end{enumerate}
 
 \subsubsection{From External Controllers to Processes}
 \begin{enumerate}[M1]
-\setcounter{enumi}{9}
+\setcounter{enumi}{12}
 \newcommand{\store}{\texttt{store}}
 \newcommand{\retrieve}{\texttt{retrieve}}
 \newcommand{\firstKey}{\texttt{first\_key}}
@@ -168,19 +240,19 @@ We categorize messages by its sender and its receiver:
 \newcommand{\nodeList}{\texttt{node\_list}}
 \newcommand{\leave}{\texttt{leave}}
 
-\item a {\store} message.
-\item a {\retrieve} message.
-\item a {\firstKey} message.
-\item a {\lastKey} message.
-\item a {\numKeys} message.
-\item a {\nodeList} message.
-\item a {\leave} message.
+\item \{$pid$, $ref$, \store, $key$, $value$\} message, sent by the outside world to store value for key.
+\item a {\retrieve} message -- as stated in the assignment.
+\item a {\firstKey} message -- as stated in the assignment.
+\item a {\lastKey} message -- as stated in the assignment.
+\item a {\numKeys} message -- as stated in the assignment.
+\item a {\nodeList} message -- as stated in the assignment.
+\item a {\leave} message  -- as stated in the assignment.
 \end{enumerate}
 
-\subsection{Initial States of the System}
-\begin{enumerate}
-\item TODO
-\end{enumerate}
+%\subsection{Initial States of the System}
+%\begin{enumerate}
+%\item TODO
+%\end{enumerate}
 
 \subsection{Actions before and after Transitions}
 \begin{figure}[H]
@@ -193,9 +265,9 @@ We will describe what would happen when a process receives a fork.
 
 
 \begin{description}
-\item[(1) $p.joining$ $\to$ $p.available$:] sends a joining request to all of its neighbors. Once it receives all joining message acknowledgments from all its neighbors, transitions to the \textit{thinking} state.
+\item[(1) $p.joining$ $\to$ $p.available$:] sends a joining request to all of its neighbors. Once it receives all joining message acknowledgments from all its neighbors, transitions to the \available state.
 
-\item[(5) $(p.leaving \vee p.red \vee p.white)$ $\to$ $p.leaving$:] checks to see if it has already received a \texttt{leave} message from an external controller. If so, the process transitions to the \textit{leaving} state and sends leaving notifications to all of its neighbors. 
+\item[(5) $(p.leaving \vee p.red \vee p.white)$ $\to$ $p.leaving$:] checks to see if it has already received a \texttt{leave} message from an external controller. If so, the process transitions to the \leaving state and sends leaving notifications to all of its neighbors. 
 
 \item[(6) $p.leaving$ $\to$ $p.gone$:]
 once it receives leaving notification acknowledgements from all of its neighbors to whom it sent leaving notifications, it transitions to the \gone state. At this stage, it knows that all of its neighbors are aware of its leaving and already deleted it from their neighbors list. With this knowledge, it then deletes all its neighbors from its neighbors list.
@@ -205,91 +277,62 @@ Now we need to define what should happen when a process $p$ receives an incoming
 
 \subsection{Actions for Incoming Joining Request Messages (M\ref{M:joining_request})}
 \begin{description}
-\item[Received in the \textit{joining} state:] holds onto the request until it successfully joins and transitioned to thinking. This prevents odd joining circles that lead to deadlocks.
-\item[Received in the \textit{thinking} state:] approves request and creates a dirty fork for the edge.
-\item[Received in the \textit{white} state:] approves request and creates a dirty fork for the edge.
-\item[Received in the \textit{red} state:] approves request and creates a dirty fork for the edge.
-\item[Received in the \textit{leaving} state:] the assignment specifies that we do not have to handle this situation, the external controller should know better.
-\item[Received in the \textit{gone} state:] not possible
+\item[Received in the \joining state:] holds onto the request until it successfully joins and transitioned to available. This prevents odd joining circles that lead to deadlocks.
+\item[Received in the \available state:] approves request and creates a dirty fork for the edge.
+\item[Received in the \leaving state:] the assignment specifies that we do not have to handle this situation, the external controller should know better.
+\item[Received in the \gone state:] not possible
 \end{description}
 
 \subsection{Actions for Incoming Joining Message Acknowledgement Messages (M\ref{M:joining_ack})}
 \begin{description}
-\item[Received in the \textit{joining} state:] adds that neighbor to the forklist, saying you don't have the fork. Then it tries to contact the rest of your neighbors. Once all neighbors have sent it an \texttt{ok}, it can transition to the \emph{thinking} state.
-\item[Received in the \textit{thinking} state:] not possible.
-\item[Received in the \textit{white} state:] not possible.
-\item[Received in the \textit{red} state:] not possible.
-\item[Received in the \textit{leaving} state:] not possible.
-\item[Received in the \textit{gone} state:] not possible.
+\item[Received in the \joining state:] adds that neighbor to the forklist, saying you don't have the fork. Then it tries to contact the rest of your neighbors. Once all neighbors have sent it an \texttt{ok}, it can transition to the \emph{available} state.
+\item[Received in the \available state:] not possible.
+\item[Received in the \leaving state:] not possible.
+\item[Received in the \gone state:] not possible.
 \end{description}
 
 \subsection{Actions for Incoming Leaving Notification Messages (M\ref{M:leaving_notification})}
 \begin{description}
-\item[Received in the \textit{joining} state:] not possible, otherwise this problem is impossible. This is due to our Assumption
-\item[Received in the \textit{thinking} state:] removes the fork from the list and remove the neighbor from the list. It sends back \texttt{ok}.
-\item[Received in the \textit{white} state:] removes the fork from the list and removes the neighbor from the list. Then it checks if we have all the forks we need to eat. It sends back \texttt{ok}.
-\item[Received in the \textit{red} state:] removes the fork from the list and removes the neighbor from the list. Then it continues red. Sends back \texttt{ok}.
-\item[Received in the \textit{leaving} state:] removes the fork from the list and removes the neighbor from the list. It sends back \texttt{ok}.
-\item[Received in the \textit{gone} state:] not possible.
+\item[Received in the \joining state:] not possible, otherwise this problem is impossible. This is due to our Assumption
+\item[Received in the \available state:] removes the fork from the list and remove the neighbor from the list. It sends back \texttt{ok}.
+\item[Received in the \leaving state:] removes the fork from the list and removes the neighbor from the list. It sends back \texttt{ok}.
+\item[Received in the \gone state:] not possible.
 \end{description}
 
 \subsection{Actions for Incoming Leaving Message Acknowledgement Messages (M\ref{M:leaving_ack})}
 \begin{description}
-\item[Received in the \textit{joining} state:] not possible.
-\item[Received in the \textit{thinking} state:] not possible.
-\item[Received in the \textit{white} state:] not possible.
-\item[Received in the \textit{red} state:] not possible.
-\item[Received in the \textit{leaving} state:] Try to contact the other neighbors, remove that neighbor from the list of neighbors.
-\item[Received in the \textit{gone} state:] not possible.
+\item[Received in the \joining state:] not possible.
+\item[Received in the \available state:] not possible.
+\item[Received in the \leaving state:] Try to contact the other neighbors, remove that neighbor from the list of neighbors.
+\item[Received in the \gone state:] not possible.
 \end{description}
 
-\subsection{Actions for Incoming \texttt{become\_white} Messages (M\ref{M:become_white})}
-\begin{description}
-\item[Received in the \textit{joining} state:] not possible
-\item[Received in the \textit{thinking} state:] sends out requests to all neighbors for forks and then transition to white state.
-\item[Received in the \textit{white} state:] justs stay white.
-\item[Received in the \textit{red} state:] not possible.
-\item[Received in the \textit{leaving} state:] not possible.
-\item[Received in the \textit{gone} state:] not possible.
-\end{description}
-
-\subsection{Actions for Incoming \texttt{stop\_red} Messages (M\ref{M:stop_red})}
-\begin{description}
-\item[Received in the \textit{joining} state:] not possible.
-\item[Received in the \textit{thinking} state:] not possible.
-\item[Received in the \textit{white} state:] not possible.
-\item[Received in the \textit{red} state:] stops red, sends out the forks to all the processes that requested them, then transitions to the \emph{thinking} state.
-\item[Received in the \textit{leaving} state:] not possible.
-\item[Received in the \textit{gone} state:] not possible.
-\end{description}
 
 \subsection{Actions for Incoming \texttt{leave} Messages (M\ref{M:leave})}
 \begin{description}
-\item[Received in the \textit{joining} state:] not possible.
-\item[Received in the \textit{thinking} state:] transitions to \emph{leaving}, which sends messages to all neighbors to say that it is leaving. Once all processes give \texttt{ok}, then it transitions to gone.
-\item[Received in the \textit{white} state:] transitions to \emph{leaving}, which sends message to all neighbors that he's leaving. Once all processes give \texttt{ok}, then it transitions to gone.
-\item[Received in the \textit{red} state:] transitions to \emph{leaving}, which sends message to all neighbors that he's leaving. Once all processes give \texttt{ok}, then it transitions to gone.
-\item[Received in the \textit{leaving} state:] stay leaving.
-\item[Received in the \textit{gone} state:] not possible.
+\item[Received in the \joining state:] not possible.
+\item[Received in the \available state:] transitions to \emph{leaving}, which sends messages to all neighbors to say that it is leaving. Once all processes give \texttt{ok}, then it transitions to gone.
+\item[Received in the \leaving state:] stay leaving.
+\item[Received in the \gone state:] not possible.
 \end{description}
 
 
-\subsection{How a new process informs its neighbors that it has joined the network}
-Sends joining requests to all of their neighbors.
-
-\subsection{How a new process knows that its neighbors are aware that it has joined the network}
-Waits for joining request acknowledgement messages from all of its neighbors.
-\subsection{How a process informs its neighbors that it is leaving the network}
-Sends leaving notifications to all of their neighbors.
-
-\subsection{How a process knows that its neighbors are aware that it is leaving the network}
-Waits for leaving notification acknowledgements from all of its neighbors.
+%\subsection{How a new process informs its neighbors that it has joined the network}
+%Sends joining requests to all of their neighbors.
+%
+%\subsection{How a new process knows that its neighbors are aware that it has joined the network}
+%Waits for joining request acknowledgement messages from all of its neighbors.
+%\subsection{How a process informs its neighbors that it is leaving the network}
+%Sends leaving notifications to all of their neighbors.
+%
+%\subsection{How a process knows that its neighbors are aware that it is leaving the network}
+%Waits for leaving notification acknowledgements from all of its neighbors.
 
 \section{Allowed Assumptions}
 
 \subsection{External Controllers}
 \begin{enumerate}[\text{A}1]
-\item \label{A:finite_time_red} Only storage processes will receive requests from the outisde world.
+\item \label{A:finite_time_red} Only storage processes will receive requests from the outside world.
 
 \item \label{A:no_invalid_signals} External controllers will not send duplicate or invalid control signals.
 
@@ -304,10 +347,168 @@ Waits for leaving notification acknowledgements from all of its neighbors.
 \end{enumerate}
 
 
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+\section{Communication}
+For a storage process $i$ to send to storage process $j$, it sends 
+the message through the following path. Assume $i < j$. If $j < i$ we can replace $j$ with $2^m + j$ and do computation in modulo $2^m.$
+
+Let
+\[
+    j - i = 2^{a_t} + 2^{a_{t - 1}} + \ldots + 2^{a_0},
+\]
+where $a_t > a_{t - 1} > \cdots > a_0 \geq 0.$ This is equivalent to express the number $j - i$ in base 2. Then we design the message to go through the following path:
+\[
+    i \longrightarrow i + 2^{a_t} \longrightarrow i + 2^{a_t} + 2^{a_{t - 1}} \longrightarrow \cdots \longrightarrow 
+    i + 2^{a_t} + 2^{a_{t - 1}} + \ldots + 2^{a_0} = j,
+\]
+which is a valid path because each sender sends a message to its neighbor. Thus, for each step, storage process $r$ computes $j - r = 2^{a_s} + 2^{a_{s-1}} + \ldots + 2^{a_0}$ (where $0\leq s \leq t$) and sends to its neighbor that has id $r + 2^{a_s}$. Note that the value $a_s$ can be computed by
+\[
+    a_s = \left\lfloor \log_2(j - r) \right\rfloor,
+\]
+where $\left\lfloor \cdot \right\rfloor$ is the floor function, which gives the largest integer that is less than or equal to the given number. For example, if $i = 2$ and $j = 13,$ the following path happens:
+\[
+    2 \longrightarrow 2 + 2^{\left\lfloor \log_2(11) \right\rfloor} = 2 + 2^3 = 11  \longrightarrow 11 + 2^{\left\lfloor \log_2(2) \right\rfloor} = 11 + 2^1 = 13.
+\]
+
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+\section{First Key, Last Key, Num Keys}
+These three commands from the outside world invoke distributed computations. The algorithm is a snapshot-like and uses the idea of devide-and-conquer. Consider the neighbor list to be its fingers:
+  \begin{lstlisting}
+Neighbors = [(Id + round(math:pow(2, K))) rem TwoToTheM || K <- lists:seq(0, M - 1)].
+  \end{lstlisting}
+The idea is, each storage process will break a task to subtasks and ask its neighbors to help them compute each subtask. The pseudocode is as follows:
+\begin{algorithm}[H]
+  \caption{Abstract Distributed Algorithms}\label{abstract_algo}
+  \begin{algorithmic}[1]
+  \Function{ABSTRACT\_DISTRIBUTED\_ALGO}{$pid$, $ref$, $task$}
+       \State Call ABSTRACT\_DISTRIBUTED\_ALGO\_SUBTASK($pid$, $ref$, $sub\_task$, $2^m$, $m+ 1$) via sending.
+       \State Wait for a response.
+       \State Format the output as Result and report back to $pid$ with the message $\{ref, \texttt{result}, Result\}$.
+   \EndFunction
+  \end{algorithmic}
+\end{algorithm}
+
+
+\noindent where $task$ can be \texttt{first\_key}, \texttt{last\_key}, or \texttt{num\_keys}.
+
+\begin{algorithm}[H]
+  \caption{Abstract Distributed Algorithm Helper Functions}\label{abstract_algo}
+  \begin{algorithmic}[1]
+  \Function{ABSTRACT\_DISTRIBUTED\_ALGO\_SUBTASK}{$pid$, $ref$, $sub\_task$, $lookahead$, $num\_lookahead$}
+      \If{$num\_lookahead = 1$}
+           \Comment{Need no further communication}
+           \State DO\_TASK on the table in this storage process.
+      \Else
+       \State Create a new table to store partial results.
+       \State DO\_TASK on the table in this storage process and insert the result into the table.
+       \State create a list $L$ of tuples $\{id + 2^k, 2^k, k + 1\}$ for $k = 0, 1, \ldots, numLookAhead - 2.$
+			\For {$\{neigborId, lookAhead, numLookAhead\}$ in $L$}  
+				\State send a global message to storage process with id $id + 2^k$ (mod $2^m$) to compute $ABSTRACT\_DISTRIBUTED\_ALGO\_SUBTASK(pid, ref, lookahead, num\_lookahead)$
+			\EndFor
+	    \State Wait for all results for all subtasks to come.
+		\State Combine the results and return.
+	  \EndIf
+   \EndFunction
+  \end{algorithmic}
+\end{algorithm}
+
+\noindent where $DO\_TASK$ corresponds to the given task. In particular, for the \texttt{first\_key} message, it will compute the first key in the table stored in this process. The combine part will 
+take the first key of the aggregated results. For the \texttt{last\_key} message, it will compute the last key. The combine part will 
+take the last key of the aggregated results. Finally, for the \texttt{num\_keys}, it will compute the number of keys in the table in  stored in this process. The combine part will take the sum of the aggregated results.
+
+
+
+\begin{algorithm}[H]
+  \caption{Implementation pf Abstract Distributed Algorithms and Helper Functions}\label{implementation}      
+\begin{lstlisting}
+    {Pid, Ref, first_key_for_the_next_k_processes_inclusive, LookAhead, NumLookAhead} ->
+      println("~s:~p > Received first_key_for_the_next_k_processes_inclusive command "
+        ++ "with lookahead (including self) of ~p and num lookahead of ~p.",
+        [GlobalName, Ref, LookAhead, NumLookAhead]),
+      Result = case NumLookAhead of
+        1 ->
+          ets:first(Table);
+        _ ->
+          % The summary table is more like a list, but we use an 
+          % ordered_set, duplicate_bag ets table for convenience.
+          % each element will be a singleton tuple
+          SummaryTable = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          % start with the first key from this process
+          ets:insert(SummaryTable, {ets:first(Table)}),
+          NeighborsWithLookAhead = [
+              {
+                % a tuple of size 3
+                (Id + round(math:pow(2, K))) rem TwoToTheM,
+                round(math:pow(2, K)),
+                % the number of processes to lookahead (including self)
+                K + 1
+              }
+              % we already lookahead at itself. So we will look ahead using
+              % the parameters [0, 1, 2, ..., NumLookAhead - 2],
+              % which has the total number of things in it being NumLookAhead - 2.
+              || K <- lists:seq(0, NumLookAhead - 2)
+          ],
+          println("~s:~p > Plan to send subcomputation requests to storage processes with id ~p",
+            [
+              GlobalName,
+              Ref,
+              lists:map(fun({A, _, _}) -> A end, NeighborsWithLookAhead)
+            ]
+          ),
+          % send a request to compute first key for the next LookAhead processes
+          lists:map(
+            fun({ProcessId, ProcessLookAhead, NumProcessesLookAhead}) -> 
+              TargetName = getStorageProcessName(ProcessId),
+              println("~s:~p > Sending subcomputation for the first_key request "
+                ++ "to ~p with lookahead (including self) of ~p and the number "
+                ++ "of processes (including self) to lookahead of ~p",
+                [GlobalName, Ref, TargetName, ProcessLookAhead, NumProcessesLookAhead]),
+              global:send(
+                TargetName,
+                {self(), make_ref(), first_key_for_the_next_k_processes_inclusive,
+                  ProcessLookAhead, NumProcessesLookAhead}
+              )
+            end,
+            NeighborsWithLookAhead
+          ),
+          % expect the table to eventually have LookAhead elements
+          wait_and_get_the_first_key(GlobalName, self(), Ref, SummaryTable, NumLookAhead)
+\end{lstlisting}
+\end{algorithm}
+
+For example, in Fig.~\ref{fig:circle}, we let $m = 3$. Suppose the storage process 0 receives the \texttt{first\_key} message. It will call a helper function $first\_key\_helper(self, 2^m, m + 1)$ because it needs to look for the first key among the total of 8 processes, and $m + 1 = 4$ is the number of the processes it actually needs to call a helper function on (including itself). It will call
+$first\_key\_helper(id = 1, lookahead = 2^0, num\_lookahead = 1)$,
+$first\_key\_helper(id = 2, lookahead = 2^1, num\_lookahead = 2)$, and
+$first\_key\_helper(id = 4, lookahead = 2^2, num\_lookahead = 3)$. Each call is done by global message passing. Once the process 0 gets results from process 1, 2, and 4, it finds the first key among the first keys reported back from process 1 (covering those keys in process 1),
+process 2 (covering those keys in storage processes 2, 3),
+process 4 (covering those keys in storage processes 4, 5, 6, 7),
+together with the first key in storage process 0.
+\begin{figure}[H]
+\pic{0.35}{circle}
+\label{fig:circle}
+\caption{A diagram showing how storage process communicates.}
+\end{figure}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+\section{Hash Function}
+We use a simple hash function that adds all the characters of the key string together and returns the modulus of the sum with respect to $2^m.$
+
+\begin{algorithm}
+  \caption{Hash function}\label{hash}
+  \begin{lstlisting}
+%% hash function to uniformly distribute among storage processes.
+hash(Str, M) when M >= 0 -> str_sum(Str) rem round((math:pow(2, M)));
+hash(_, _) -> -1.   %% error if no storage processes are open.
+      
+%% sum digits in string
+str_sum([]) -> 0;
+str_sum([X|XS]) -> X + str_sum(XS).
+  \end{lstlisting}
+\end{algorithm}
+
 \section{Proof of Correctness}
 
 
-\subsection{Proof of Safety Properties}
+\subsection{Safety Properties and Proofs}
 Suppose the parameter $m$, which is a nonnegative integer, is given.
 
 \begin{enumerate}[S1]
@@ -348,17 +549,17 @@ When a process $p$ is $gone$, the process may not join again (implying it may no
 When a process $p$ is $red$, then it holds all of its forks that it shares with its neighbors and since a process needs all of the forks it shares with its neighbors, that process with the forks will be the only one red.
 
 
-\item \label{S:mutual_neighbors} {\it (p.thinking $\vee$ p.white $\vee$ p.red)} $\Rightarrow \langle \forall q | q \in p.neighbors \rhd p \in q.neighbors \rangle$
-(when a process $p$ is $thinking$, $white$, or $red$, each of $p$'s neighbors knows that $p$ is one of its neighbors)
+\item \label{S:mutual_neighbors} {\it (p.available $\vee$ p.white $\vee$ p.red)} $\Rightarrow \langle \forall q | q \in p.neighbors \rhd p \in q.neighbors \rangle$
+(when a process $p$ is $available$, $white$, or $red$, each of $p$'s neighbors knows that $p$ is one of its neighbors)
 
-After joining, a leaving process $q$ knows its neighbors and in each state $thinking$, $white$, or $red$, the neighbors list is updated if a neighbor leaves. Thus, each state has a real-time copy of the neighboring processes.
+After joining, a leaving process $q$ knows its neighbors and in each state $available$, $white$, or $red$, the neighbors list is updated if a neighbor leaves. Thus, each state has a real-time copy of the neighboring processes.
 
-Before the process $q$ can leave or remove a neighbor $p$ who is either $thinking$, $white$, or $red$ from $q.neighbors$, we guarantee that $p$ remove $q$ first.
+Before the process $q$ can leave or remove a neighbor $p$ who is either $available$, $white$, or $red$ from $q.neighbors$, we guarantee that $p$ remove $q$ first.
 
 \item {\it p.gone} $\Rightarrow \langle \forall q  \rhd p\not\in q.neighbors \rangle$
 (when a process $p$ is $gone$, it is not in any other process's set of neighbors)
 
-If $p$ is \emph{gone}, from our algorithm we know that $p.neighbors = \emptyset$. From this fact and from the safety property S\ref{S:mutual_neighbors}, we know that if $q$ is $thinking$, $white$, or $red$, then $p$ cannot be a neighbor $q$. If $q$ is \emph{leaving} or \emph{gone}, $q.neighbors = \emptyset$ so $p\not\in q.neighbors.$ If $q$ is \emph{joining}, $p$ cannot possibly be a neighbor of $q$ due to our Assumption A\ref{A:E_guarantees_nodes_entering_network} that guarantees joining processes to be able to enter the network. Hence, we have covered all cases.
+If $p$ is \emph{gone}, from our algorithm we know that $p.neighbors = \emptyset$. From this fact and from the safety property S\ref{S:mutual_neighbors}, we know that if $q$ is $available$, $white$, or $red$, then $p$ cannot be a neighbor $q$. If $q$ is \emph{leaving} or \emph{gone}, $q.neighbors = \emptyset$ so $p\not\in q.neighbors.$ If $q$ is \emph{joining}, $p$ cannot possibly be a neighbor of $q$ due to our Assumption A\ref{A:E_guarantees_nodes_entering_network} that guarantees joining processes to be able to enter the network. Hence, we have covered all cases.
 
 
 
@@ -409,34 +610,9 @@ When $p$ is in the \emph{leaving} state, it sends leaving notifications to all i
 $p.gone$ $\leadsto$ (all other nodes detect and rebalance)
 
 \end{enumerate}
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-\section{Communication}
-For a storage process $i$ to send to storage process $j$, it sends 
-the message through the following path. Assume $i < j$. If $j < i$ we can replace $j$ with $2^m + j$ and do computation in modulo $2^m.$
-
-Let
-\[
-    j - i = 2^{a_t} + 2^{a_{t - 1}} + \ldots + 2^{a_0},
-\]
-where $a_t > a_{t - 1} > \cdots > a_0 \geq 0.$ This is equivalent to express the number $j - i$ in base 2. Then we design the message to go through the following path:
-\[
-    i \longrightarrow i + 2^{a_t} \longrightarrow i + 2^{a_t} + 2^{a_{t - 1}} \longrightarrow \cdots \longrightarrow 
-    i + 2^{a_t} + 2^{a_{t - 1}} + \ldots + 2^{a_0} = j,
-\]
-which is a valid path because each sender sends a message to its neighbor. Thus, for each step, storage process $r$ computes $j - r = 2^{a_s} + 2^{a_{s-1}} + \ldots + 2^{a_0}$ (where $0\leq s \leq t$) and sends to its neighbor that has id $r + 2^{a_s}$. Note that the value $a_s$ can be computed by
-\[
-    a_s = \left\lfloor \log_2(j - r) \right\rfloor,
-\]
-where $\left\lfloor \cdot \right\rfloor$ is the floor function, which gives the largest integer that is less than or equal to the given number. For example, if $i = 2$ and $j = 13,$ the following path happens:
-\[
-    2 \longrightarrow 2 + 2^{\left\lfloor \log_2(11) \right\rfloor} = 2 + 2^3 = 11  \longrightarrow 11 + 2^{\left\lfloor \log_2(2) \right\rfloor} = 11 + 2^1 = 13.
-\]
 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-\section{Appendix: Relevant Code}
-\begin{lstlisting}
-TODO
-\end{lstlisting}
+
 
 
 \end{document}

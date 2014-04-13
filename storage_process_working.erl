@@ -163,6 +163,8 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
     % =========================================================================
     {Ref, retrieved, Value} ->
       println("~s:~p > Received a retrieved message.", [GlobalName, Ref]),
+      println("~s:~p > Should have got this command if I were the outside world. "
+        ++ "But I'm also cool outputing it too.", [GlobalName, Ref]),
       case Value == no_value of
         true -> 
           println("~s:~p > The key does not exist.",
@@ -408,12 +410,20 @@ storage_serve_once(M, Id, Neighbors, Storage, Table) ->
     % =========================================================================
     % =============================== RESULT ==================================
     % =========================================================================
-    {Ref, result, Result} -> ok;
+    {Ref, result, Result} ->
+      println("~s:~p > Received a result message.", [GlobalName, Ref]),
+      println("~s:~p > Should have got this command if I were the outside world. "
+        ++ "But I'm also cool outputing it too.", [GlobalName, Ref]),
+      println("~s:~p > The result is ~p.", [GlobalName, Ref, Result]);
 
     % =========================================================================
     % ============================== FAILURE ==================================
     % =========================================================================
-    {Ref, failure} -> ok;
+    {Ref, failure} ->
+      println("~s:~p > Received a failure message.", [GlobalName, Ref]),
+      println("~s:~p > Should have got this command if I were the outside world. "
+        ++ "But I'm also cool outputing it too.", [GlobalName, Ref]),
+      println("~s:~p > ============ FAILURE ============.", [GlobalName, Ref]);
 
     % =========================================================================
     % ================================ LEAVE ==================================
@@ -523,9 +533,6 @@ wait_and_get_num_keys(GlobalName, Pid, Ref, Table, ExpectedLength) ->
   case length(ets:match(Table, '$1')) of
     ExpectedLength ->
       println("~s:~p > Quorum reached!", [GlobalName, Ref]),
-      ets:delete(Table, '$end_of_table'),
-      println("~s:~p > After deleting '$end_of_table', the table looks like: ~p",
-        [GlobalName, Ref, ets:match(Table, '$1')]),
       AllElementsUnparsed = ets:match(Table, '$1'),
       AllElementsParsed = lists:map(fun([{A}]) -> A end, AllElementsUnparsed),
       Result = lists:sum(AllElementsParsed),
