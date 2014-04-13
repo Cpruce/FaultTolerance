@@ -121,7 +121,7 @@ prune_neighbors(NodeList, StorageProcs, K, TwoToTheM, Pruned)->
 	end.
 	
 %% retreive storage processes from other nodes
-enter_load_balance(M, NodeName, Id, RecvNeigh, NextId, NextId, Storage_Procs, TwoToTheM) ->
+enter_load_balance(_M, _NodeName, _Id, _RecvNeigh, NextId, NextId,  _Storage_Procs, _TwoToTheM) ->
     []; 
 enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoToTheM)->
 	% send message to node with Id PrevId to get 
@@ -137,14 +137,16 @@ enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoTo
             Spid = spawn(storage_process, x_store, [M, NodeName, Ind,
                     NewNeighbors, Storage, Backups]),  
            println("Storage process ~p transfered! Its PID is ~p", [Ind, Spid]),
-           NewRecv = getStorageProcessName(Ind+1),
-           [Ind]++enter_load_balance(M, NodeName, Id, NewRecv, Ind+1, NextId,
+           Next = (Ind+1) rem TwoToTheM,
+           NewRecv = getStorageProcessName(Next),
+           [Ind]++enter_load_balance(M, NodeName, Id, NewRecv, Next, NextId,
                Storage_Procs, TwoToTheM);
         {_Ref, failure} ->
             println("Node down"),
             % spawn the storage process on detection
-            NewRecv = getStorageProcessName(Id+1),
-            enter_load_balance(M, NodeName, Id, NewRecv, Ind+1, NextId,
+            Next = (Ind+1) rem TwoToTheM,
+            NewRecv = getStorageProcessName(Next),
+            enter_load_balance(M, NodeName, Id, NewRecv, Next, NextId,
                Storage_Procs, TwoToTheM);
        _ ->
            println("Received something else"),

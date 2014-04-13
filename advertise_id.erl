@@ -29,7 +29,7 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive);
 		{Pid, node_list} ->
 			print("Received NodeList request from ~p~n", [Pid]),
-            		Pid ! {self(), node_list,  Neighbors},
+            		Pid ! {self(),  Neighbors},
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)
 		%{Pid, snapshot, ToGet, SnapshotList} ->
 			% snapshot, 1st round. Each storage process in chord records its state
@@ -50,7 +50,7 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot)->
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot);
 		{Pid, node_list} ->
 			print("Received NodeList request from ~p~n", [Pid]),
-			Pid ! {self(), Neighbors},
+			Pid ! {self(), node_list, Neighbors},
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot);
 		{Pid, snapshot_over, ToGet, NewBackups} ->
 			% snapshot, 2nd round. Each storage process updates its backups	
