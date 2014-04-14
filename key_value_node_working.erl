@@ -131,14 +131,26 @@ global_processes_update(M, [Neighbor]) ->
       println("Connected to the neighbor ~p", [Neighbor]),
       % sleep for 0.5 seconds -- we need to wait until names are successfully registered
       timer:sleep(500),
-      NeighborsNames = global:registered_names(),
-      println("List of registered names is empty?: ~p", [NeighborsNames == []]),
-      println("List of neighbors: ~p", [NeighborsNames]);
+      NeighborsNames = global:registered_names();
+      % NodeList = lists:sort(get_node_list(NeighborsNames, Connection, node())),
+      % println("List of neighbors: ~p", [NeighborsNames]);
     false ->
       println("Could not connect to neighbor ~p", [Neighbor])
   end,
   {1,2}.
 
+%% gets global list of {Node, Id, Pid}'s
+get_node_list(NeighborsNames, Neighbor, NodeName)->
+  print("Sending request to ~p for the node list~n", [Neighbor]),
+  global:send(Neighbor, {self(), node_list}),
+  receive
+    {Pid, result, Result} ->
+      print("Received node list from ~p~n", [Pid]),
+      Result;
+    {_Pid, failure} ->
+      print("Neighbor ~p failed. Now trying ~p~n", [Neighbor, hd(NeighborsNames)]),
+      get_node_list(tl(NeighborsNames), hd(Neighbor), NodeName) 
+  end.
 
 %% ====================================================================
 %%                       Pretty Print Functions

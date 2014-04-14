@@ -12,6 +12,9 @@ erl -noshell -run external_controller main $MAINNODE num_keys
 erl -noshell -run external_controller main $MAINNODE node_list
 erl -noshell -run external_controller main $MAINNODE store cucumber "ewww"
 erl -noshell -run external_controller main $MAINNODE store banana "is fantastic"
+erl -noshell -run external_controller main $MAINNODE first_key
+erl -noshell -run external_controller main $MAINNODE last_key
+erl -noshell -run external_controller main $MAINNODE num_keys
 
 
 The tests cover:
