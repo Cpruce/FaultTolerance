@@ -72,6 +72,7 @@ send_last_key_request() ->
   println("~s:~p > Sending a last_key request...", [GlobalName, Ref]),
   global:send(StorageName, {self(), Ref, last_key}).
 
+
 send_num_keys_request() ->
   GlobalName = "ExternalControllerSendNumKeys1",
   Ref = make_ref(),
@@ -80,6 +81,17 @@ send_num_keys_request() ->
   % println("~s> Registered names: ~p", [GlobalName, RegisteredNames]),
   println("~s:~p > Sending a num_keys request...", [GlobalName, Ref]),
   global:send(StorageName, {self(), Ref, num_keys}).
+
+
+send_node_list_request() ->
+  GlobalName = "ExternalControllerSendNodeList1",
+  Ref = make_ref(),
+  RegisteredNames = global:registered_names(),
+  StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
+  % println("~s> Registered names: ~p", [GlobalName, RegisteredNames]),
+  println("~s:~p > Sending a node_list request...", [GlobalName, Ref]),
+  global:send(StorageName, {self(), Ref, node_list}).
+
 
 loop_once() ->
   GlobalName = "ExternalControllerGeneral1",
@@ -152,6 +164,13 @@ main(Params) ->
           send_num_keys_request();
         _ ->
           halt("Error: There should be no parameters after the keyword 'num_keys'")
+      end;
+    "node_list" ->
+      case length(TheRest) of
+        0 ->
+          send_node_list_request();
+        _ ->
+          halt("Error: There should be no parameters after the keyword 'node_list'")
       end;
     _ ->
       halt("Error: Not a valid action.")

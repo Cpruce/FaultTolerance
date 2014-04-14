@@ -162,13 +162,17 @@ Each of the processes must be in one of the following 4 states:
 \item \gone
 \end{enumerate}
 
+TODOOOOOOO: Correctness of numkeys, etc.
 
-\subsection{Information Stored by Each Process}
+It relies on each key is in exactly one table!
+
+
+\subsection{Information Stored by Each Storage Process}
 A process $p$ contains the following information:
 \begin{enumerate}
 \item $p.m$ ($m$): the parameter $m$.
 \item $p.state$ ($\langle\texttt{state}\rangle$): one of the \numStates states outlined above.
-\item $p.node$ its process node ($\texttt{Node}$), represented as a lowercase ASCII string with a machine name, separated by an @ symbol. (For example, \texttt{p1@ash}) We can always find out our nodename with node(), so it is not passed around.
+\item $p.node$ its process node ($\texttt{Node}$), represented as a lowercase ASCII string with a machine name, separated by an @ symbol. (For example, \texttt{p1@ash}). We can always find out our nodename with node(), so it is not passed around.
 \item $p.neighbors$ ($\texttt{Neighbors}$): a list of its neighboring processes $[n_1, n_2, \ldots, n_k]$.
 \end{enumerate}
 
@@ -254,13 +258,13 @@ sent to the pid from a \texttt{first\_key}, \texttt{last\_key}, \texttt{num\_key
 \caption{A diagram showing possible state transitions.}
 \end{figure}
 
-We will describe what would happen when a process receives a fork.
+We will describe what would happen between states.
 
 
 \begin{description}
 \item[(1) $p.joining$ $\to$ $p.available$:] sends a joining request to all of its neighbors. Once it receives all joining message acknowledgments from all its neighbors, transitions to the \available state.
 
-\item[(5) $(p.leaving \vee p.red \vee p.white)$ $\to$ $p.leaving$:] checks to see if it has already received a \texttt{leave} message from an external controller. If so, the process transitions to the \leaving state and sends leaving notifications to all of its neighbors. 
+\item[(5) $p.leaving$ $\to$ $p.leaving$:] checks to see if it has already received a \texttt{leave} message from an external controller. If so, the process transitions to the \leaving state and sends leaving notifications to all of its neighbors. 
 
 \item[(6) $p.leaving$ $\to$ $p.gone$:]
 once it receives leaving notification acknowledgements from all of its neighbors to whom it sent leaving notifications, it transitions to the \gone state. At this stage, it knows that all of its neighbors are aware of its leaving and already deleted it from their neighbors list. With this knowledge, it then deletes all its neighbors from its neighbors list.
@@ -479,13 +483,13 @@ together with the first key in storage process 0.
 \begin{figure}[H]
 \pic{0.35}{circle}
 \label{fig:circle}
-\caption{A diagram showing how storage process communicates.}
+\caption{A diagram showing how storage process communicates. In this example, storage 0 sends messages to storage process 1 requesting it to find the first key among storage process 1; to storage process 2 to find the first key among storage processes 2 and 3; and to storage process 4 to find the first key among storage processes 4, 5, 6,  and 7. Then the storage process 0 combines these results and determines the gloabally first key.}
 \end{figure}
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 \section{Hash Function}
 We use a simple hash function that adds all the characters of the key string together and returns the modulus of the sum with respect to $2^m.$
 
-\begin{algorithm}
+\begin{algorithm}[H]
   \caption{Hash function}\label{hash}
   \begin{lstlisting}
 %% hash function to uniformly distribute among storage processes.
@@ -515,6 +519,8 @@ $p$ is given the state of $joining$ in which the process $p$ is requesting to jo
 
 
 \item $\#(\text{storage processes}) = 2^m.$
+
+Initially, the number of the storage processes spawned by the first node is $2^m.$ After more nodes join, storage processes are differently distributed among nodes, but the total number does not change.
 
 \item {\it p.joining} {\bfseries next} {\it (p.joining $\vee$ p.available)}
 
