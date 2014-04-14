@@ -229,7 +229,7 @@ get_global_list(NeighborsNames, Neighbor, NodeName)->
 assign_id(Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
 	case Hd == 0 of
         true ->
-            {TwoToTheM div 2, 0, TwoToTheM-1};
+            {TwoToTheM div 2, 0, 0};
         false ->
             {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
     end;

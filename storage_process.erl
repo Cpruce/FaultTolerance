@@ -19,10 +19,11 @@
 
 init_store(M, NodeName, Id, Neighbors)->
   	Storage = ets:new(table, [ordered_set]),
+    Backups = ets:new(table, [ordered_set]),
     Name = list_to_atom("StorageProcess" ++ integer_to_list(Id)),
     global:register_name(Name, self()),
 	println("Neighbors to ~p are ~p~n", [Name, Neighbors]),
-	storage_serve(M, NodeName, Id, Neighbors, Storage, []).%Backups). 
+	storage_serve(M, NodeName, Id, Neighbors, Storage, Backups).%Backups). 
 
 x_store(M, NodeName, Id, Neighbors, Storage, Backups)->
     Global = global:registered_names(),
@@ -1252,7 +1253,8 @@ storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
     % =========================================================================
     % ============================== NODE LIST ================================
     % =========================================================================
-    {Pid, Ref, node_list} -> storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    {Pid, Ref, node_list} -> 
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
     % =========================================================================
     % =============================== RESULT ==================================
     % =========================================================================

@@ -7,7 +7,7 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([init_adv/5, init_snapshot/2]).
+-export([init_adv/5]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -16,8 +16,8 @@
 %% ====================================================================
 %% register and advertise the storage node
 init_adv(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
-	global:register_name(list_to_atom("Adv:"++NodeName), self()),
-	advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive).
+	global:register_name(list_to_atom("Adv:"++NodeName++""++[Id]), self()),
+    advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive).
 
 %% wait for any Id, rebalancing, or neighbors list queries
 advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
@@ -63,9 +63,6 @@ advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, initiator)->
 			hd(Neighbors) ! {self(), snapshot_over, tl(Neighbors), SnapshotList},
 			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)	
 	end.	
-
-%% initiate snapshot if initiator
-init_snapshot(Neighbors, StorageProcs) -> ok.
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->
