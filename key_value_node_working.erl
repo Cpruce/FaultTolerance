@@ -5,7 +5,7 @@
 %% @doc _D157R18U73_
 -module(key_value_node_working).
 
--import(storage_process_working, [init_store/4]).
+-import(storage_process_working, [init_store/4, getStorageProcessName/1]).
 -import(non_storage_process, [run/0]).
 %% ====================================================================
 %%                             Public API
@@ -70,8 +70,8 @@ main(Params) ->
   % spawn and register a non-storage process, so that the node can be discovered.
   NonStorageProcessPid = spawn(non_storage_process, run, []),
   global:register_name("NonStorageProcessAt" ++ NodeName, NonStorageProcessPid),
-  println("Registered a non storage process with name = ~p, PID = ~p",
-    ["NonStorageProcessAt" ++ NodeName, NonStorageProcessPid]),
+  println("~s > Registered a non storage process with name = ~p, PID = ~p",
+    [node(), "NonStorageProcessAt" ++ NodeName, NonStorageProcessPid]),
   % begin storage service
   node_enter(M, Neighbors).
 
@@ -88,13 +88,13 @@ node_enter(M, []) ->
   % globally register each of the 2^m processes
   lists:map(
     fun({Id, Pid}) ->
-      global:register_name("StorageProcess" ++ integer_to_list(Id), Pid)
+      global:register_name(getStorageProcessName(Id), Pid)
     end,
     IdPidList
   );
 node_enter(M, Neighbors) ->
   % connect with nodes, assign id, get nodenum list, and update global list.
-  {Id, NewNeighbors} = global_processes_update(M, Neighbors).
+  {_Id, _NewNeighbors} = global_processes_update(M, Neighbors).
 
 
 %% ====================================================================
@@ -108,14 +108,14 @@ init_storage_processes(_M, TwoToTheM, TwoToTheM) -> [];
 init_storage_processes(M, TwoToTheM, Id) ->
   % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
   Neighbors = [(Id + round(math:pow(2, K))) rem TwoToTheM || K <- lists:seq(0, M - 1)],
-  println("Spawning a storage process with id = ~p...", [Id]),
-  println("Storage process ~p's neighbors will be the following: ~s",
-    [Id, pretty_print_list_of_nums(Neighbors)]),
+  println("~s > Spawning a storage process with id = ~p...", [node(), Id]),
+  println("~s > Storage process ~p's neighbors will be the following: ~s",
+    [node(), Id, pretty_print_list_of_nums(Neighbors)]),
   % spawn's arguments: Module, Function, Args
   % storate_serve's arguments: M, Id, Neighbors, Storage
   NodeID = 0,
-  Pid = spawn(storage_process_working, init_store, [M, Id, Neighbors, NodeID]),
-  println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
+  Pid = spawn(storage_process_working, init_store, [M, Id, NodeID]),
+  println("~s > Storage process ~p spawned! Its PID is ~p", [node(), Id, Pid]),
   [{Id, Pid}] ++ init_storage_processes(M, TwoToTheM, Id + 1). 
 
 
@@ -127,29 +127,41 @@ init_storage_processes(M, TwoToTheM, Id) ->
 global_processes_update(M, [Neighbor]) ->
   case net_kernel:connect_node(Neighbor) of
     true ->
-      println("node = ~p", [node()]),
-      println("Connected to the neighbor ~p", [Neighbor]),
+      println("~s > node = ~p", [node(), node()]),
+      println("~s > Connected to the neighbor ~p", [node(), Neighbor]),
       % sleep for 0.5 seconds -- we need to wait until names are successfully registered
       timer:sleep(500),
-      NeighborsNames = global:registered_names();
-      % NodeList = lists:sort(get_node_list(NeighborsNames, Connection, node())),
+      TwoToTheM = round(math:pow(2, M)),
+      _GlobalNames = global:registered_names(),
+      NodeList = get_node_list(TwoToTheM),
+      AllNodeList = lists:seq(0, TwoToTheM - 1),
+      AvailableNodeList = AllNodeList -- NodeList,
+      % pick a random element from a list
+      AssignedNodeId = lists:nth(random:uniform(length(AvailableNodeList)), AvailableNodeList),
+      println("~s > Will assign node id to ~p", [node(), AssignedNodeId]),
+      Pid = spawn(storage_process_working, init_store, [M, Id, AssignedNodeId]),;
+      % NodeList = lists:sort(get_node_list(NeighborsNames, node())),
       % println("List of neighbors: ~p", [NeighborsNames]);
     false ->
-      println("Could not connect to neighbor ~p", [Neighbor])
+      println("~s > Could not connect to neighbor ~p", [node(), Neighbor])
   end,
   {1,2}.
 
-%% gets global list of {Node, Id, Pid}'s
-get_node_list(NeighborsNames, Neighbor, NodeName)->
-  print("Sending request to ~p for the node list~n", [Neighbor]),
-  global:send(Neighbor, {self(), node_list}),
+
+get_node_list(TwoToTheM) ->
+  RandomId = random:uniform(TwoToTheM) - 1, % pick a random number between 0 to 2^m - 1 inclusive.
+  TargetStorageProcess = getStorageProcessName(RandomId),
+  println("~s > Will try to ask ~p for a node list.", [node(), TargetStorageProcess]),
+  Ref = make_ref(),
+  println("~s:~p > Sending a node_list request...", [node(), Ref]),
+  global:send(TargetStorageProcess, {self(), Ref, node_list}),
   receive
-    {Pid, result, Result} ->
-      print("Received node list from ~p~n", [Pid]),
-      Result;
-    {_Pid, failure} ->
-      print("Neighbor ~p failed. Now trying ~p~n", [Neighbor, hd(NeighborsNames)]),
-      get_node_list(tl(NeighborsNames), hd(Neighbor), NodeName) 
+    {Ref, result, Result} ->
+        println("~s:~p > The result is ~p", [node(), Ref, Result]),
+        Result;
+      _ ->
+        println("~s > Error: Bad response!", [node()]),
+        get_node_list(TwoToTheM)
   end.
 
 %% ====================================================================

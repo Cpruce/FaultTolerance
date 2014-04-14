@@ -5,7 +5,7 @@
 %% @doc _D157R18U73_
 -module(key_value_node).
 
--import(storage_process, [init_store/4]).
+-import(storage_process, [init_store/3]).
 -import(advertise_id, [init_adv/5]).
 %% ====================================================================
 %%                             Public API

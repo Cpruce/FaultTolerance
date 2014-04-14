@@ -9,7 +9,7 @@
 %% ====================================================================
 %%                             Public API
 %% ====================================================================
--export([init_store/4, hash/2]).
+-export([init_store/3, hash/2, getStorageProcessName/1]).
 %% ====================================================================
 %%                             Constants
 %% ====================================================================
@@ -19,14 +19,14 @@
 
 
 % getStorageProcessName/1
-% converts a storage process id to its globally registered name.
+% converts a storage process id (integer) to its globally registered name.
 getStorageProcessName(Id) ->
   "StorageProcess" ++ integer_to_list(Id).
 
-init_store(M, Id, Neighbors, NodeId) ->
+init_store(M, Id, NodeId) ->
   Storage = ets:new(table, [ordered_set]),
   % Backups = backup_neighbors(Id, Neighbors),
-  storage_serve(M, NodeId, Id, Neighbors, Storage).
+  storage_serve(M, NodeId, Id, Storage).
 
 % calculate_forwarded_id/3
 % given the current ID and target ID and M, calculate the neigboring id to forward to.
@@ -45,11 +45,11 @@ calculate_forwarded_id(Id, Target, M) ->
 
 %% primary storage service function; handles
 %% general communication and functionality.
-storage_serve(M, NodeId, Id, Neighbors, Storage) ->
-  storage_serve_once(M, NodeId, Id, Neighbors, Storage),
-  storage_serve(M, NodeId, Id, Neighbors, Storage).
+storage_serve(M, NodeId, Id, Storage) ->
+  storage_serve_once(M, NodeId, Id, Storage),
+  storage_serve(M, NodeId, Id, Storage).
 
-storage_serve_once(M, NodeId, Id, Neighbors, Storage) ->
+storage_serve_once(M, NodeId, Id, Storage) ->
   GlobalName = getStorageProcessName(Id),
   TwoToTheM = round(math:pow(2, M)),
   println(""),
@@ -182,7 +182,7 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, first_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, NodeId, Id, Neighbors, Storage),
+      storage_serve_once(M, NodeId, Id, Storage),
       receive
         {_NewRef, first_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -260,7 +260,7 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, last_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, NodeId, Id, Neighbors, Storage),
+      storage_serve_once(M, NodeId, Id, Storage),
       receive
         {_NewRef, last_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -338,7 +338,7 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, num_keys_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, NodeId, Id, Neighbors, Storage),
+      storage_serve_once(M, NodeId, Id, Storage),
       receive
         {_NewRef, num_keys_result_for_the_next_k_processes_inclusive, Result} ->
           Pid ! {Ref, result, Result}
@@ -410,7 +410,7 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, node_list_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, NodeId, Id, Neighbors, Storage),
+      storage_serve_once(M, NodeId, Id, Storage),
       receive
         {_NewRef, node_list_result_for_the_next_k_processes_inclusive, Result} ->
           Pid ! {Ref, result, Result}

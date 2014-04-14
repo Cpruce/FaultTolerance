@@ -162,10 +162,6 @@ Each of the processes must be in one of the following 4 states:
 \item \gone
 \end{enumerate}
 
-TODOOOOOOO: Correctness of numkeys, etc.
-
-It relies on each key is in exactly one table!
-
 
 \subsection{Information Stored by Each Storage Process}
 A process $p$ contains the following information:
@@ -586,6 +582,15 @@ This is true due to our algorithm.
 \item If storing is not succesful, num\_keys should increase by one.
 
 \item retrieve should not change num\_keys.
+
+\item num\_keys is correct.
+
+This relies on each key is stored in exactly one table (not counting backup), which is true because of each hash function gives a unique value.
+
+
+\item first\_key and last\_key are correct.
+
+Since we go through all elements effectively, and we find the first and last keys, we should get the globally first and last key, respectively.
 \end{enumerate}
 
 
