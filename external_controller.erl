@@ -93,6 +93,16 @@ send_node_list_request() ->
   global:send(StorageName, {self(), Ref, node_list}).
 
 
+send_leave_request() ->
+  GlobalName = "ExternalControllerSendLeave1",
+  Ref = make_ref(),
+  RegisteredNames = global:registered_names(),
+  StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
+  % println("~s> Registered names: ~p", [GlobalName, RegisteredNames]),
+  println("~s:~p > Sending a leave request...", [GlobalName, Ref]),
+  global:send(StorageName, {self(), Ref, leave}).
+
+
 loop_once() ->
   GlobalName = "ExternalControllerGeneral1",
   receive
@@ -171,6 +181,13 @@ main(Params) ->
           send_node_list_request();
         _ ->
           halt("Error: There should be no parameters after the keyword 'node_list'")
+      end;
+    "leave" ->
+      case length(TheRest) of
+        0 ->
+          send_leave_request();
+        _ ->
+          halt("Error: There should be no parameters after the keyword 'leave'")
       end;
     _ ->
       halt("Error: Not a valid action.")
