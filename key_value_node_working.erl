@@ -72,14 +72,13 @@ main(Params) ->
   global:register_name("NonStorageProcessAt" ++ NodeName, NonStorageProcessPid),
   println("Registered a non storage process with name = ~p, PID = ~p",
     ["NonStorageProcessAt" ++ NodeName, NonStorageProcessPid]),
-  % begin storage service 
+  % begin storage service
   node_enter(M, Neighbors).
 
 
 %% ====================================================================
 %%                           Node Functions
 %% ====================================================================
-
 
 % initiate rebalancing and update all nodes
 % when this node enters.
@@ -88,18 +87,15 @@ node_enter(M, []) ->
   IdPidList = init_storage_processes(M, TwoToTheM, 0),
   % globally register each of the 2^m processes
   lists:map(
-    fun({Id, Pid}) -> global:register_name("StorageProcess" ++ integer_to_list(Id), Pid) end,
+    fun({Id, Pid}) ->
+      global:register_name("StorageProcess" ++ integer_to_list(Id), Pid)
+    end,
     IdPidList
   );
 node_enter(M, Neighbors) ->
   % connect with nodes, assign id, get nodenum list, and update global list.
   {Id, NewNeighbors} = global_processes_update(M, Neighbors).
 
-
-
-  % (module, name, args)
-  % Pid = spawn(advertise_id, advertise_id, [Id, NodeName]),
-  % ok.
 
 %% ====================================================================
 %%                       Storage Process Functions
@@ -117,7 +113,8 @@ init_storage_processes(M, TwoToTheM, Id) ->
     [Id, pretty_print_list_of_nums(Neighbors)]),
   % spawn's arguments: Module, Function, Args
   % storate_serve's arguments: M, Id, Neighbors, Storage
-  Pid = spawn(storage_process_working, init_store, [M, Id, Neighbors, []]),
+  NodeID = 0,
+  Pid = spawn(storage_process_working, init_store, [M, Id, Neighbors, NodeID]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [{Id, Pid}] ++ init_storage_processes(M, TwoToTheM, Id + 1). 
 
@@ -142,31 +139,6 @@ global_processes_update(M, [Neighbor]) ->
   end,
   {1,2}.
 
-%% compute furthest distance between any two node ids
-%% X is the greatest difference and Id is the lower of the 
-%% two Id's. NewId is half the greatest distance plus the 
-%% lower of the two Id's, mod 2^M.
-%% Assumption: NodeList is sorted.
-% assign_id(_Hd, [], {PrevId,X, NextId}, TwoToTheM)-> 
-%   {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId};
-% assign_id(Hd, [IdN], {PrevId, X, NextId}, TwoToTheM)->
-%   % difference between last elem and the head
-%   % only non-increasing difference (mod 2^M)
-%   Dif = TwoToTheM - (IdN - Hd), 
-%         case Dif > X of
-%     true ->
-%       {(IdN + (Dif div 2)) rem TwoToTheM, IdN, Hd};
-%     false ->
-%       {(PrevId + (X div 2)) rem TwoToTheM, PrevId, NextId}
-%   end;  
-% assign_id(Hd, [IdM, IdN | NodeList], {PrevId, X, NextId}, TwoToTheM)->
-%   Dif = IdN - IdM, % Id's are now guaranteed to be increasing
-%   case Dif > X of
-%     true -> 
-%       assign_id(Hd, [IdN]++NodeList, {IdM, Dif, IdN}, TwoToTheM);
-%     false ->
-%       assign_id(Hd, [IdN]++NodeList, {PrevId, X, NextId}, TwoToTheM)
-%   end.
 
 %% ====================================================================
 %%                       Pretty Print Functions

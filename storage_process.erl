@@ -897,6 +897,422 @@ storage_serve_once(M, NodeName, Id, Neighbors, Storage, Backups) ->
     {Pid, Ref, leave} -> ok
   end.
 
+<<<<<<< HEAD
+=======
+
+%% primary storage service function; handles
+%% general communication and functionality.
+storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) ->
+    GlobalName = getStorageProcessName(Id),
+    TwoToTheM = round(math:pow(2, M)),
+    Rnd = crypto:rand_uniform(50000, 100000),
+    println("~p is listening for ~p secs before backing up.", [Id, Rnd]),
+    receive 
+    % =========================================================================
+    % ============================== STORE ====================================
+    % =========================================================================
+    {Pid, Ref, store, Key, Value} ->
+      println("~s:~p > Received store command at key ~p of value ~p from ~p",
+        [GlobalName, Ref, Key, Value, Pid]),
+      HashValue = hash(Key, M),
+      println("~s:~p > Hashed value of the key: ~p", [GlobalName, Ref, HashValue]),
+      case HashValue == Id of
+        true ->
+          % operation to be done at this process
+          % save old value, replace it, and send message back
+          case ets:lookup(Storage, Key) of
+            [] ->
+              % this means there is no key before.
+              ets:insert(Storage, {Key, Value}),
+              println("~s:~p > {~p, ~p} stored. The key is brand new!",
+                [GlobalName, Ref, Key, Value]),
+              println("~s:~p > All of the key-value pairs stored by this storage process: ~p",
+                [GlobalName, Ref, ets:match(Storage, '$0')]),
+              Pid ! {Ref, stored, no_value};
+
+            [{_OldKey, OldValue}] ->
+              ets:insert(Storage, {Key, Value}),
+              println("~s:~p > {~p, ~p} stored. The key existed before this store. "
+                ++ "The old value was ~p.", [GlobalName, Ref, Key, Value, OldValue]),
+              println("~s:~p > All of the key-value pairs stored by this storage process: ~p",
+                [GlobalName, Ref, ets:match(Storage, '$0')]),
+              Pid ! {Ref, stored, OldValue};
+
+            _ ->
+              println("~s:~p > We should not arrive at this stage! This can mean " ++
+                "the table may be incorrectly set up to use multiset instead of set.",
+                [GlobalName, Ref])
+          end;
+
+        false ->
+          % Pass on computation.
+          % Determine the recipient to forward to.
+          ForwardedID = calculate_forwarded_id(Id, HashValue, M),
+          ForwardedRecipient = getStorageProcessName(ForwardedID),
+          println("~s:~p > The hash value does not match with this id. "
+            ++ "Forwarding the store request to ~s...",
+            [GlobalName, Ref, ForwardedRecipient]),
+          % println("Check globally registered names: ~p", [global:registered_names()]),
+          global:send(ForwardedRecipient, {Pid, Ref, store, Key, Value})
+  end,
+          storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);
+
+    % =========================================================================
+    % ============================== STORED ===================================
+    % =========================================================================
+    {Ref, stored, OldValue} -> 
+      case OldValue == no_value of
+        true ->
+          println("~s:~p > No previously stored value. Store successful.",
+            [GlobalName, Ref]),
+            storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+        false ->
+          println("~s:~p > The old value was ~p. Store successful.",
+            [GlobalName, Ref, OldValue]),
+          storage_serve(M, NodeName, Id, Neighbors, Storage, Backups) 
+      end;
+
+    % =========================================================================
+    % ============================== RETRIEVE =================================
+    % =========================================================================
+    {Pid, Ref, retrieve, Key} ->
+      println("~s:~p > Received retrieve command at key ~p from ~p",
+        [GlobalName, Ref, Key, Pid]),
+      HashValue = hash(Key, M),
+      println("~s:~p > Hashed value of the key: ~p", [GlobalName, Ref, HashValue]),
+      case HashValue == Id of
+        true ->
+          % operation to be done at this process
+          % save old value, replace it, and send message back
+          case ets:lookup(Storage, Key) of
+            [] ->
+              % this means there is no key before.
+              println("~s:~p > The key ~p did not exist in the system.",
+                [GlobalName, Ref, Key]),
+              Pid ! {Ref, retrieved, no_value};
+
+            [{_OldKey, Value}] ->
+              println("~s:~p > {~p, ~p} retrieved. The key existed in the system. "
+                ++ "The value is ~p", [GlobalName, Ref, Value, Key, Value]),
+              Pid ! {Ref, retrieved, Value};
+
+            _ ->
+              println("~s:~p > We should not arrive at this stage! This can mean" ++
+                "the table may be incorrectly set up to use multiset instead of set.",
+                [GlobalName, Ref])
+          end;
+
+        false ->
+          % Pass on computation
+          % determine the recipient to forward to 
+          ForwardedID = calculate_forwarded_id(Id, HashValue, M),
+          ForwardedRecipient = getStorageProcessName(ForwardedID),
+          println("~s:~p > The hash value does not match with this id. "
+            ++ "Forwarding the retrieve request to ~s...",
+            [GlobalName, Ref, ForwardedRecipient]),
+          % println("Check globally registered names: ~p", [global:registered_names()]),
+          global:send(ForwardedRecipient, {Pid, Ref, retrieve, Key})
+      end,
+      storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);
+
+    % =========================================================================
+    % ============================== RETRIEVED ================================
+    % =========================================================================
+    {Ref, retrieved, Value} ->
+      println("~s:~p > Received a retrieved message.", [GlobalName, Ref]),
+      case Value == no_value of
+        true -> 
+          println("~s:~p > The key does not exist.",
+            [GlobalName, Ref]),
+          storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);
+        false ->
+          println("~s:~p > The value for the requested key is ~p.",
+            [GlobalName, Ref, Value]),
+          storage_serve(M, NodeName, Id, Neighbors, Storage, Backups)
+  
+      end;
+
+    % =========================================================================
+    % ============================= FIRST KEY =================================
+    % =========================================================================
+    {Pid, Ref, first_key} ->
+      println("~s:~p > Received first_key command.", [GlobalName, Ref]),
+      println("~s:~p > Forwarding a request to a helper request on the same process...",
+        [GlobalName, Ref]),
+      self() ! {self(), Ref, first_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Storage),
+      receive
+        {_NewRef, first_key_result_for_the_next_k_processes_inclusive, Result} ->
+          ListResult = case Result of
+            '$end_of_table' ->
+              [];
+            _ ->
+              [Result]
+          end,
+          Pid ! {Ref, result, ListResult}
+      end;
+
+    {Pid, Ref, first_key_for_the_next_k_processes_inclusive, LookAhead, NumLookAhead} ->
+      println("~s:~p > Received first_key_for_the_next_k_processes_inclusive command "
+        ++ "with lookahead (including self) of ~p and num lookahead of ~p.",
+        [GlobalName, Ref, LookAhead, NumLookAhead]),
+      Result = case NumLookAhead of
+        1 ->
+          ets:first(Storage);
+        _ ->
+          % The summary table is more like a list, but we use an 
+          % ordered_set, duplicate_bag ets table for convenience.
+          % each element will be a singleton tuple
+          SummaryStorage = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          % start with the first key from this process
+          ets:insert(SummaryStorage, {ets:first(Storage)}),
+          NeighborsWithLookAhead = [
+              {
+                % a tuple of size 3
+                (Id + round(math:pow(2, K))) rem TwoToTheM,
+                round(math:pow(2, K)),
+                % the number of processes to lookahead (including self)
+                K + 1
+              }
+              % we already lookahead at itself. So we will look ahead using
+              % the parameters [0, 1, 2, ..., NumLookAhead - 2],
+              % which has the total number of things in it being NumLookAhead - 2.
+              || K <- lists:seq(0, NumLookAhead - 2)
+          ],
+          println("~s:~p > Plan to send subcomputation requests to storage processes with id ~p",
+            [
+              GlobalName,
+              Ref,
+              lists:map(fun({A, _, _}) -> A end, NeighborsWithLookAhead)
+            ]
+          ),
+          % send a request to compute first key for the next LookAhead processes
+          lists:map(
+            fun({ProcessId, ProcessLookAhead, NumProcessesLookAhead}) -> 
+              TargetName = getStorageProcessName(ProcessId),
+              println("~s:~p > Sending subcomputation for the first_key request "
+                ++ "to ~p with lookahead (including self) of ~p and the number "
+                ++ "of processes (including self) to lookahead of ~p",
+                [GlobalName, Ref, TargetName, ProcessLookAhead, NumProcessesLookAhead]),
+              global:send(
+                TargetName,
+                {self(), make_ref(), first_key_for_the_next_k_processes_inclusive,
+                  ProcessLookAhead, NumProcessesLookAhead}
+              )
+            end,
+            NeighborsWithLookAhead
+          ),
+          % expect the table to eventually have LookAhead elements
+          wait_and_get_the_first_key(GlobalName, self(), Ref, SummaryStorage, NumLookAhead)
+      end,
+      println(""),
+      println("~s:~p > The first key for the next ~p processes starting from ~p is ~p",
+        [GlobalName, Ref, LookAhead, GlobalName, Result]),
+      Pid ! {Ref, first_key_result_for_the_next_k_processes_inclusive, Result},
+     storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+
+    % =========================================================================
+    % ============================== LAST KEY =================================
+    % =========================================================================
+    {Pid, Ref, last_key} ->
+      println("~s:~p > Received last_key command.", [GlobalName, Ref]),
+      println("~s:~p > Forwarding a request to a helper request on the same process...",
+        [GlobalName, Ref]),
+      self() ! {self(), Ref, last_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Storage),
+      receive
+        {_NewRef, last_key_result_for_the_next_k_processes_inclusive, Result} ->
+          ListResult = case Result of
+            '$end_of_table' ->
+              [];
+            _ ->
+              [Result]
+          end,
+          Pid ! {Ref, result, ListResult}
+      end;
+
+    {Pid, Ref, last_key_for_the_next_k_processes_inclusive, LookAhead, NumLookAhead} ->
+      println("~s:~p > Received last_key_for_the_next_k_processes_inclusive command "
+        ++ "with lookahead (including self) of ~p and num lookahead of ~p.",
+        [GlobalName, Ref, LookAhead, NumLookAhead]),
+      Result = case NumLookAhead of
+        1 ->
+          ets:last(Storage);
+        _ ->
+          % The summary table is more like a list, but we use an 
+          % ordered_set, duplicate_bag ets table for convenience.
+          % each element will be a singleton tuple
+          SummaryStorage = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          % start with the last key from this process
+          ets:insert(SummaryStorage, {ets:last(Storage)}),
+          NeighborsWithLookAhead = [
+              {
+                % a tuple of size 3
+                (Id + round(math:pow(2, K))) rem TwoToTheM,
+                round(math:pow(2, K)),
+                % the number of processes to lookahead (including self)
+                K + 1
+              }
+              % we already lookahead at itself. So we will look ahead using
+              % the parameters [0, 1, 2, ..., NumLookAhead - 2],
+              % which has the total number of things in it being NumLookAhead - 2.
+              || K <- lists:seq(0, NumLookAhead - 2)
+          ],
+          println("~s:~p > Plan to send subcomputation requests to storage processes with id ~p",
+            [
+              GlobalName,
+              Ref,
+              lists:map(fun({A, _, _}) -> A end, NeighborsWithLookAhead)
+            ]
+          ),
+          % send a request to compute last key for the next LookAhead processes
+          lists:map(
+            fun({ProcessId, ProcessLookAhead, NumProcessesLookAhead}) -> 
+              TargetName = getStorageProcessName(ProcessId),
+              println("~s:~p > Sending subcomputation for the last_key request "
+                ++ "to ~p with lookahead (including self) of ~p and the number "
+                ++ "of processes (including self) to lookahead of ~p",
+                [GlobalName, Ref, TargetName, ProcessLookAhead, NumProcessesLookAhead]),
+              global:send(
+                TargetName,
+                {self(), make_ref(), last_key_for_the_next_k_processes_inclusive,
+                  ProcessLookAhead, NumProcessesLookAhead}
+              )
+            end,
+            NeighborsWithLookAhead
+          ),
+          % expect the table to eventually have LookAhead elements
+          wait_and_get_the_last_key(GlobalName, self(), Ref, SummaryStorage, NumLookAhead)
+      end,
+      println(""),
+      println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
+        [GlobalName, Ref, LookAhead, GlobalName, Result]),
+      Pid ! {Ref, last_key_result_for_the_next_k_processes_inclusive, Result},
+      storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);  
+
+    % =========================================================================
+    % ============================== NUM KEYS =================================
+    % =========================================================================
+    {Pid, Ref, num_keys} ->
+      println("~s:~p > Received num_keys command.", [GlobalName, Ref]),
+      println("~s:~p > Forwarding a request to a helper request on the same process...",
+        [GlobalName, Ref]),
+      self() ! {self(), Ref, num_keys_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
+      storage_serve_once(M, NodeName, Id, Neighbors, Storage, Storage),
+      receive
+        {_NewRef, num_keys_result_for_the_next_k_processes_inclusive, Result} ->
+          Pid ! {Ref, result, Result}
+      end,
+      storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);  
+
+    {Pid, Ref, num_keys_for_the_next_k_processes_inclusive, LookAhead, NumLookAhead} ->
+      println("~s:~p > Received num_keys_for_the_next_k_processes_inclusive command "
+        ++ "with lookahead (including self) of ~p and num lookahead of ~p.",
+        [GlobalName, Ref, LookAhead, NumLookAhead]),
+      Result = case NumLookAhead of
+        1 ->
+          length(ets:match(Storage, '$1'));
+        _ ->
+          % The summary table is more like a list, but we use an 
+          % ordered_set, duplicate_bag ets table for convenience.
+          % each element will be a singleton tuple
+          SummaryStorage = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          % start with the last key from this process
+          ets:insert(SummaryStorage, {length(ets:match(Storage, '$1'))}),
+          NeighborsWithLookAhead = [
+              {
+                % a tuple of size 3
+                (Id + round(math:pow(2, K))) rem TwoToTheM,
+                round(math:pow(2, K)),
+                % the number of processes to lookahead (including self)
+                K + 1
+              }
+              % we already lookahead at itself. So we will look ahead using
+              % the parameters [0, 1, 2, ..., NumLookAhead - 2],
+              % which has the total number of things in it being NumLookAhead - 2.
+              || K <- lists:seq(0, NumLookAhead - 2)
+          ],
+          println("~s:~p > Plan to send subcomputation requests to storage processes with id ~p",
+            [
+              GlobalName,
+              Ref,
+              lists:map(fun({A, _, _}) -> A end, NeighborsWithLookAhead)
+            ]
+          ),
+          % send a request to compute last key for the next LookAhead processes
+          lists:map(
+            fun({ProcessId, ProcessLookAhead, NumProcessesLookAhead}) -> 
+              TargetName = getStorageProcessName(ProcessId),
+              println("~s:~p > Sending subcomputation for the num_keys request "
+                ++ "to ~p with lookahead (including self) of ~p and the number "
+                ++ "of processes (including self) to lookahead of ~p",
+                [GlobalName, Ref, TargetName, ProcessLookAhead, NumProcessesLookAhead]),
+              global:send(
+                TargetName,
+                {self(), make_ref(), num_keys_for_the_next_k_processes_inclusive,
+                  ProcessLookAhead, NumProcessesLookAhead}
+              )
+            end,
+            NeighborsWithLookAhead
+          ),
+          % expect the table to eventually have LookAhead elements
+          wait_and_get_num_keys(GlobalName, self(), Ref, SummaryStorage, NumLookAhead)
+      end,
+      println(""),
+      println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
+        [GlobalName, Ref, LookAhead, GlobalName, Result]),
+      Pid ! {Ref, num_keys_result_for_the_next_k_processes_inclusive, Result},
+      storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);  
+
+    % =========================================================================
+    % ============================== NODE LIST ================================
+    % =========================================================================
+    {Pid, Ref, node_list} -> 
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    % =========================================================================
+    % =============================== RESULT ==================================
+    % =========================================================================
+    {Ref, result, Result} -> storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    % =========================================================================
+    % ============================== FAILURE ==================================
+    % =========================================================================
+    {Ref, failure} -> storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    % =========================================================================
+    % ================================ LEAVE ==================================
+    % =========================================================================
+    {Pid, Ref, leave} -> 
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    {Pid, check, Name} -> 
+        %println("Neighbor ~p went missing", [Name]),
+        %ToReg = ets:lookup(Storage, Name),
+        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
+         %       ToReg, []]),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups); 
+    {Pid, missing, Name} -> 
+        %println("Neighbor ~p went missing", [Name]),
+        %ToReg = ets:lookup(Storage, Name),
+        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
+                %ToReg, []]),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, Backups);     
+    {Pid, rebalance} ->
+		println("Received rebalance request from ~p, ~p moving to that node",
+            [Pid, Id]),
+        Pid ! {self(), rebalance_response, Storage, Backups, Neighbors},
+        exit(normal);
+	
+	{Pid, backup_request} ->
+		% send storage back to be backed up
+		Pid ! {self(), backup_response, Storage},
+		storage_serve(M, NodeName, Id, Neighbors, Storage, Backups)
+
+    after 
+      Rnd ->
+	    NewBackups = backup_neighbors(M, NodeName,Id, Neighbors, Storage,
+            Backups),
+        storage_serve(M, NodeName, Id, Neighbors, Storage, NewBackups)
+end.
+
+>>>>>>> 7a92da7e015564a8893ba867b5ebac842bd28aea
 wait_and_get_the_first_key(GlobalName, Pid, Ref, Storage, ExpectedLength) ->
   println(""),
   println("~s:~p > [first_key subcalculation] Waiting...", [GlobalName, Ref]),
