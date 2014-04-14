@@ -16,7 +16,8 @@
 %% ====================================================================
 %% register and advertise the storage node
 init_adv(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
-	global:register_name(list_to_atom("Adv:"++NodeName++""++[Id]), self()),
+    Name = "Adv:"++NodeName,
+    global:register_name(list_to_atom(Name), self()),
     advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM).
 
 %% wait for any Id, rebalancing, or neighbors list queries

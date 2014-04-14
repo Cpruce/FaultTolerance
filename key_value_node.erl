@@ -142,7 +142,7 @@ enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoTo
        %timer:sleep(500), % sleep for 0.5 seconds, need to wait until names are registered properly
     Global = global:registered_names(),
     println("Reg names are ~p", [Global]),
-    println("Sending rebalance request to ~p", [RecvNeigh]),
+    println("~p sending rebalance request to ~p", [self(), RecvNeigh]),
     global:send(list_to_atom(RecvNeigh), {self(), rebalance}),
 	receive
         {Pid, rebalance_response, Storage, Backups, NewNeighbors} ->
@@ -179,17 +179,6 @@ init_storage_processes(M, NodeName, TwoToTheM, Id) ->
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [Id] ++ init_storage_processes(M, NodeName, TwoToTheM, Id + 1). 
 
-%% grabs the first adversting process
-get_adv([])-> [];
-get_adv(Names)->
-    Ind = string:str(atom_to_list(hd(Names)), "Adv:"),
-    case Ind > 0 of
-		true ->
-			[hd(Names)];
-		false ->
-			get_adv(tl(Names))
-	end.
-
 %% get and update global list of registered nodes 
 %% from the one other known neighbor, connect, and
 %% assign unique node number.
@@ -199,8 +188,7 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
        timer:sleep(500), % sleep for 0.5 seconds, need to wait until names are registered properly
        NeighborsNames = global:registered_names(),
        print("Globally registered names are ~p~n", [NeighborsNames]),
-       [Connection] = get_adv(NeighborsNames), 
-       NodeList = lists:sort(get_global_list(NeighborsNames, Connection, NodeName)),
+       NodeList = lists:sort(get_global_list(NeighborsNames, NodeName)),
        println("NodeList is ~p~n", [NodeList]),
        {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {0, 0, 0}, TwoToTheM),
        [Id, PrevId, NextId, lists:sort(NodeList++[Id])];
@@ -209,16 +197,16 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
    end.
 
 %% gets global list of {Node, Id, Pid}'s
-get_global_list(NeighborsNames, Neighbor, NodeName)->
-	print("Sending request to ~p for the node list~n", [Neighbor]),
-	global:send(Neighbor, {self(), node_list}),
+get_global_list([X|NeighborsNames], NodeName)->
+	print("Sending request to ~p for the node list~n", [X]),
+    global:send(X, {self(), make_ref(), node_list}),
 	receive
 		{Pid, node_list, NodeList} ->
 			print("Recieved node list from ~p~n", [Pid]),
 			NodeList;
 		{_Pid, failure} ->
-			print("Neighbor ~p failed. Now trying ~p~n", [Neighbor, hd(NeighborsNames)]),
-			get_global_list(tl(NeighborsNames), hd(Neighbor), NodeName)	
+			print("Neighbor ~p failed. Now trying ~p~n", [X, hd(NeighborsNames)]),
+			get_global_list(tl(NeighborsNames), NodeName)	
 	end.
 
 %% compute furthest distance between any two node ids
