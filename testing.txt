@@ -28,3 +28,7 @@ and make sure store and retrieve still work as expected
     - check num_keys after store the same key (expecting 1)
 - check node_list from when we have one node (expecting a list of one node)
 - check node_list from when we have more than one nodes (expecting a list of one node)
+
+Tests we hope we cover but didn't have time for:
+- test for the second node joining and load balancing
+- test for fault tolerance. Send a leave message and see whether the key-value is still there.
