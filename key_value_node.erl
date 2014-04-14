@@ -5,7 +5,7 @@
 %% @doc _D157R18U73_
 -module(key_value_node).
 
--import(storage_process, [init_store/3]).
+-import(storage_process, [init_store/4, x_store/6]).
 -import(advertise_id, [init_adv/5]).
 %% ====================================================================
 %%                             Public API
@@ -167,17 +167,17 @@ enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoTo
 
 %% Case: if this node is the first node
 %% init storage processes. return tuple list of Ids with Pid's
-init_storage_processes(0, _NodeName,  _, _Id) -> [];
-init_storage_processes(_M, _NodeName, TwoToTheM, TwoToTheM) -> [];
-init_storage_processes(M, NodeName, TwoToTheM, Id) ->
+init_storage_processes(0, _NodeId,  _, _Id) -> [];
+init_storage_processes(_M, _NodeId, TwoToTheM, TwoToTheM) -> [];
+init_storage_processes(M, NodeId, TwoToTheM, Id) ->
   % Allowed to communicate to  Id + 2^k from k = 0 to M - 1
   Neighbors = [ (Id + round(math:pow(2, K))) rem TwoToTheM || K <-lists:seq(0, M - 1)],
   println("Spawning a storage process with id = ~p...", [Id]),
   println("Storage process ~p's neighbors will be the following: ~p", [Id, Neighbors]),
   % spawn's arguments are: Module, Function, Args
-  Pid = spawn(storage_process, init_store, [M, NodeName, Id, Neighbors]),
+  Pid = spawn(storage_process, init_store, [M, NodeId, Id, Neighbors]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
-  [Id] ++ init_storage_processes(M, NodeName, TwoToTheM, Id + 1). 
+  [Id] ++ init_storage_processes(M, NodeId, TwoToTheM, Id + 1). 
 
 %% get and update global list of registered nodes 
 %% from the one other known neighbor, connect, and

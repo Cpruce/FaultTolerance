@@ -17,15 +17,15 @@
 %%                            TwoToTheMain Function
 %% ====================================================================
 
-init_store(M, NodeName, Id, Neighbors)->
+init_store(M, NodeId, Id, Neighbors)->
   	Storage = ets:new(table, [ordered_set]),
     Backups = ets:new(table, [ordered_set]),
     Name = list_to_atom("StorageProcess" ++ integer_to_list(Id)),
     global:register_name(Name, self()),
-	println("Neighbors to ~p are ~p~n", [Name, Neighbors]),
-	storage_serve(M, Id, Id, Neighbors, Storage, Backups).%Backups). 
+	println("Neighbors to ~p on node ~p are ~p~n", [Id, NodeId, Neighbors]),
+	storage_serve(M, NodeId, Id, Neighbors, Storage, Backups).%Backups). 
 
-x_store(M, NodeName, Id, Neighbors, Storage, Backups)->
+x_store(M, NodeId, Id, Neighbors, Storage, Backups)->
     Global = global:registered_names(),
     Regname =list_to_atom("StorageProcess" ++ integer_to_list(Id)), 
     case lists:member(Regname, Global) of
@@ -39,7 +39,7 @@ x_store(M, NodeName, Id, Neighbors, Storage, Backups)->
     GlobalNow = global:registered_names(),
 	println("Global is now = ~p", [GlobalNow]),
     println("Neighbors is ~p~n", [Neighbors]),
-	storage_serve(M, Id, Id, Neighbors, Storage, Backups). 
+	storage_serve(M, NodeId, Id, Neighbors, Storage, Backups). 
 
 % calculate_forwarded_id/3
 % given the current ID and target ID and M, calculate the neigboring id to forward to.
@@ -551,14 +551,13 @@ backup_neighbors(M, NodeId, Id, [IdN | Neighbors], Storage, Backups) ->
         println("Neighbor ~p went missing", [Name]),
         println("Storage is ~p", [Storage]),
         ToReg = ets:lookup(Storage, Name),
-        Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors, ToReg, []]),
+        Pid = spawn(storage_process, x_store, [M, NodeId, Id, Neighbors, ToReg, []]),
         storage_serve(M, NodeId, Id, Neighbors, Storage, Backups); 
     {Pid, missing, Name} -> 
         println("Neighbor ~p went missing", [Name]),
         println("Storage is ~p", [Storage]),
         ToReg = ets:lookup(Storage, Name),
-        Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
-         %       ToReg, []]),
+        Pid = spawn(storage_process, x_store, [M, NodeId, Id, Neighbors, ToReg, []]),
         storage_serve(M, NodeId, Id, Neighbors, Storage, Backups);     
     
     {Pid, rebalance} ->
