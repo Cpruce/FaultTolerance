@@ -138,8 +138,7 @@ global_processes_update(M, [Neighbor]) ->
       AvailableNodeList = AllNodeList -- NodeList,
       % pick a random element from a list
       AssignedNodeId = lists:nth(random:uniform(length(AvailableNodeList)), AvailableNodeList),
-      println("~s > Will assign node id to ~p", [node(), AssignedNodeId]),
-      Pid = spawn(storage_process_working, init_store, [M, Id, AssignedNodeId]),;
+      println("~s > Will assign node id to ~p", [node(), AssignedNodeId]);
       % NodeList = lists:sort(get_node_list(NeighborsNames, node())),
       % println("List of neighbors: ~p", [NeighborsNames]);
     false ->

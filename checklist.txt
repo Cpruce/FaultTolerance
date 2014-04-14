@@ -20,6 +20,9 @@ Files to submit
     [ ] key_value.erl
     [ ] storage_process.erl
     [ ] advertise_id.erl
+    [ ] key_value_working.erl
+    [ ] storage_process_working.erl
+    [ ] non_storage_process.erl
     [ ] external_controller.erl
 
 [ ] readme.txt
