@@ -201,9 +201,9 @@ get_node_list([X|NeighborsNames], NodeName)->
 	print("Sending request to ~p for the node list~n", [X]),
     global:send(X, {self(), make_ref(), node_list}),
 	receive
-		{Pid, result, Result} ->
-			print("Recieved node list from ~p~n", [Pid]),
-			NodeList;
+		{Ref, result, Result} ->
+			print("Recieved node list from ~p~n", [Ref]),
+			Result;
 		{_Pid, failure} ->
 			print("Neighbor ~p failed. Now trying ~p~n", [X, hd(NeighborsNames)]),
 			get_node_list(tl(NeighborsNames), NodeName)	
