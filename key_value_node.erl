@@ -142,7 +142,7 @@ enter_load_balance(M, NodeName, Id, RecvNeigh, Ind, NextId, Storage_Procs, TwoTo
        %timer:sleep(500), % sleep for 0.5 seconds, need to wait until names are registered properly
     Global = global:registered_names(),
     println("Reg names are ~p", [Global]),
-    println("Sending rebalance request to ~p", [RecvNeigh]),
+    println("~p sending rebalance request to ~p", [self(), RecvNeigh]),
     global:send(list_to_atom(RecvNeigh), {self(), rebalance}),
 	receive
         {Pid, rebalance_response, Storage, Backups, NewNeighbors} ->
