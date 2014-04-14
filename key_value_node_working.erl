@@ -113,7 +113,8 @@ init_storage_processes(M, TwoToTheM, Id) ->
     [Id, pretty_print_list_of_nums(Neighbors)]),
   % spawn's arguments: Module, Function, Args
   % storate_serve's arguments: M, Id, Neighbors, Storage
-  Pid = spawn(storage_process_working, init_store, [M, Id, Neighbors, []]),
+  NodeID = 0,
+  Pid = spawn(storage_process_working, init_store, [M, Id, Neighbors, NodeID]),
   println("Storage process ~p spawned! Its PID is ~p", [Id, Pid]),
   [{Id, Pid}] ++ init_storage_processes(M, TwoToTheM, Id + 1). 
 

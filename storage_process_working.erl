@@ -23,11 +23,10 @@
 getStorageProcessName(Id) ->
   "StorageProcess" ++ integer_to_list(Id).
 
-init_store(M, Id, Neighbors, _Dummy) ->
+init_store(M, Id, Neighbors, NodeId) ->
   Storage = ets:new(table, [ordered_set]),
-  NodeName = "Bobby",
   % Backups = backup_neighbors(Id, Neighbors),
-  storage_serve(M, NodeName, Id, Neighbors, Storage).
+  storage_serve(M, NodeId, Id, Neighbors, Storage).
 
 % calculate_forwarded_id/3
 % given the current ID and target ID and M, calculate the neigboring id to forward to.
@@ -46,11 +45,11 @@ calculate_forwarded_id(Id, Target, M) ->
 
 %% primary storage service function; handles
 %% general communication and functionality.
-storage_serve(M, NodeName, Id, Neighbors, Storage) ->
-  storage_serve_once(M, NodeName, Id, Neighbors, Storage),
-  storage_serve(M, NodeName, Id, Neighbors, Storage).
+storage_serve(M, NodeId, Id, Neighbors, Storage) ->
+  storage_serve_once(M, NodeId, Id, Neighbors, Storage),
+  storage_serve(M, NodeId, Id, Neighbors, Storage).
 
-storage_serve_once(M, NodeName, Id, Neighbors, Storage) ->
+storage_serve_once(M, NodeId, Id, Neighbors, Storage) ->
   GlobalName = getStorageProcessName(Id),
   TwoToTheM = round(math:pow(2, M)),
   println(""),
@@ -183,7 +182,7 @@ storage_serve_once(M, NodeName, Id, Neighbors, Storage) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, first_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, NodeName, Id, Neighbors, Storage),
+      storage_serve_once(M, NodeId, Id, Neighbors, Storage),
       receive
         {_NewRef, first_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -261,7 +260,7 @@ storage_serve_once(M, NodeName, Id, Neighbors, Storage) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, last_key_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, NodeName, Id, Neighbors, Storage),
+      storage_serve_once(M, NodeId, Id, Neighbors, Storage),
       receive
         {_NewRef, last_key_result_for_the_next_k_processes_inclusive, Result} ->
           ListResult = case Result of
@@ -339,7 +338,7 @@ storage_serve_once(M, NodeName, Id, Neighbors, Storage) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, num_keys_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, NodeName, Id, Neighbors, Storage),
+      storage_serve_once(M, NodeId, Id, Neighbors, Storage),
       receive
         {_NewRef, num_keys_result_for_the_next_k_processes_inclusive, Result} ->
           Pid ! {Ref, result, Result}
@@ -411,7 +410,7 @@ storage_serve_once(M, NodeName, Id, Neighbors, Storage) ->
       println("~s:~p > Forwarding a request to a helper request on the same process...",
         [GlobalName, Ref]),
       self() ! {self(), Ref, node_list_for_the_next_k_processes_inclusive, TwoToTheM, M + 1},
-      storage_serve_once(M, NodeName, Id, Neighbors, Storage),
+      storage_serve_once(M, NodeId, Id, Neighbors, Storage),
       receive
         {_NewRef, node_list_result_for_the_next_k_processes_inclusive, Result} ->
           Pid ! {Ref, result, Result}
@@ -423,14 +422,14 @@ storage_serve_once(M, NodeName, Id, Neighbors, Storage) ->
         [GlobalName, Ref, LookAhead, NumLookAhead]),
       Result = case NumLookAhead of
         1 ->
-          [NodeName];
+          [NodeId];
         _ ->
           % The summary table is more like a list, but we use an 
           % ordered_set, duplicate_bag ets table for convenience.
           % each element will be a singleton tuple
           SummaryTable = ets:new(summary_table, [ordered_set, duplicate_bag]),
           % start with the last key from this process
-          ets:insert(SummaryTable, {[NodeName]}),
+          ets:insert(SummaryTable, {[NodeId]}),
           NeighborsWithLookAhead = [
               {
                 % a tuple of size 3

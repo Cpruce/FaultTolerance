@@ -17,11 +17,18 @@ For example, you can run
 erlc storage_process.erl
 erlc advertise_id.erl
 erlc key_value_node.erl
-erl -env ERL_MAX_ETS_TABLES=100000 -noshell -run key_value_node main 3 ctnode
-# erl -env ERL_MAX_ETS_TABLES=100000 -noshell -run key_value_node_working main 12 node2 node1@ash
+
+erl -env ERL_MAX_ETS_TABLES=100000 -noshell -run key_value_node main 3 ct_node0
+# erl -env ERL_MAX_ETS_TABLES=100000 -noshell -run key_value_node_working main 12 ct_node ct_node0@ash
 
 
 Our test console can be found here:
 https://gist.github.com/tummykung/3ed57af6d7ed3bf8eccd
 
-We don't have much time to do node list testing, but otherwise we tested quite thoroughly.
+The tests cover:
+- store various keys and retrieve
+- store the same key and see if the values get updated via retrieve
+- check num_keys from the beginning (expecting 0)
+- check num_keys after storing a new key (expecting 1)
+    - check num_keys after store the same key (expecting 1)
+- check node_list from when we have one node (expecting a list of one node)

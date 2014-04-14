@@ -1,0 +1,27 @@
+Our test console can be found here:
+https://gist.github.com/tummykung/3ed57af6d7ed3bf8eccd
+
+
+MAINNODE=[INSERT_YOUR_NODE@HOST_HERE]
+erlc external_controller.erl
+erl -noshell -run external_controller main $MAINNODE num_keys
+erl -noshell -run external_controller main $MAINNODE store apple "is cool"
+erl -noshell -run external_controller main $MAINNODE num_keys
+erl -noshell -run external_controller main $MAINNODE store apple "is actually ok"
+erl -noshell -run external_controller main $MAINNODE num_keys
+erl -noshell -run external_controller main $MAINNODE node_list
+erl -noshell -run external_controller main $MAINNODE store cucumber "ewww"
+erl -noshell -run external_controller main $MAINNODE store banana "is fantastic"
+
+
+The tests cover:
+- store various keys and retrieve
+- store things with the same hash (by looking in the output console whether
+two keys end up in the same storage process or by calculating the sum of characters)
+and make sure store and retrieve still work as expected
+- store the same key and see if the values get updated via retrieve
+- check num_keys from the beginning (expecting 0)
+- check num_keys after storing a new key (expecting 1)
+    - check num_keys after store the same key (expecting 1)
+- check node_list from when we have one node (expecting a list of one node)
+- check node_list from when we have more than one nodes (expecting a list of one node)

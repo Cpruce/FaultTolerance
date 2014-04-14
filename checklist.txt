@@ -1,0 +1,24 @@
+TODO
+====
+
+[ ] crash handling
+[ ] timeout -> failure
+[/] node_list
+[ ] leave
+[ ] states
+[ ] writeup
+    [ ] correctness arguments
+    [ ] states & actions during transitions
+    [ ] fault tolerance
+
+Files to submit
+===============
+[ ] algorithm.pdf
+
+[ ] key_value.zip
+    [ ] testing.txt
+    [ ] key_value.erl
+    [ ] storage_process.erl
+    [ ] advertise_id.erl
+
+[ ] readme.txt
