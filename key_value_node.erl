@@ -188,7 +188,7 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
        timer:sleep(500), % sleep for 0.5 seconds, need to wait until names are registered properly
        NeighborsNames = global:registered_names(),
        print("Globally registered names are ~p~n", [NeighborsNames]),
-       NodeList = lists:sort(get_global_list(NeighborsNames, NodeName)),
+       NodeList = lists:sort(get_node_list(NeighborsNames, NodeName)),
        println("NodeList is ~p~n", [NodeList]),
        {Id, PrevId, NextId} = assign_id(hd(NodeList), tl(NodeList), {0, 0, 0}, TwoToTheM),
        [Id, PrevId, NextId, lists:sort(NodeList++[Id])];
@@ -197,16 +197,16 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
    end.
 
 %% gets global list of {Node, Id, Pid}'s
-get_global_list([X|NeighborsNames], NodeName)->
+get_node_list([X|NeighborsNames], NodeName)->
 	print("Sending request to ~p for the node list~n", [X]),
     global:send(X, {self(), make_ref(), node_list}),
 	receive
-		{Pid, node_list, NodeList} ->
-			print("Recieved node list from ~p~n", [Pid]),
-			NodeList;
+		{Ref, result, Result} ->
+			print("Recieved node list from ~p~n", [Ref]),
+			Result;
 		{_Pid, failure} ->
 			print("Neighbor ~p failed. Now trying ~p~n", [X, hd(NeighborsNames)]),
-			get_global_list(tl(NeighborsNames), NodeName)	
+			get_node_list(tl(NeighborsNames), NodeName)	
 	end.
 
 %% compute furthest distance between any two node ids
