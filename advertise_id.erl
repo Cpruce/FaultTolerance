@@ -17,52 +17,21 @@
 %% register and advertise the storage node
 init_adv(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
 	global:register_name(list_to_atom("Adv:"++NodeName++""++[Id]), self()),
-    advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive).
+    advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM).
 
 %% wait for any Id, rebalancing, or neighbors list queries
-advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)->
+advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)->
     print("advertising passively at node ~p~n", [NodeName]),
     receive
 		{Pid, id} ->
 			print("Received Id request from ~p~n", [Pid]),
             Pid ! {self(), Id},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive);
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM);
         {Pid, node_list} ->
 			print("Received NodeList request from ~p~n", [Pid]),
             		Pid ! {self(), node_list, Neighbors},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)
-	end;
-advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot)->
-	receive
-		{Pid, id} ->
-			print("Received Id request from ~p~n", [Pid]),
-			Pid ! {self(), Id},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot);
-		{Pid, node_list} ->
-			print("Received NodeList request from ~p~n", [Pid]),
-			Pid ! {self(), node_list, Neighbors},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, snapshot);
-		{Pid, snapshot_over, ToGet, NewBackups} ->
-			% snapshot, 2nd round. Each storage process updates its backups	
-			% update backups
-			
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)		
-	end;
-advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, initiator)->
-	receive
-		{Pid, id} ->
-			print("Received Id request from ~p~n", [Pid]),
-			Pid ! {self(), Id},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, initiator);
-		{Pid, node_list} ->
-			print("Received NodeList request from ~p~n", [Pid]),
-			Pid ! {self(), Neighbors},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, initiator);
-		{Pid, snapshot, ToGet, SnapshotList} ->
-			% snapshot over, pass results around
-			hd(Neighbors) ! {self(), snapshot_over, tl(Neighbors), SnapshotList},
-			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM, passive)	
-	end.	
+			advertise(Id, NodeName, Neighbors, StorageProcs, TwoToTheM)	
+    end.
 
 % Helper functions for timestamp handling.
 get_two_digit_list(Number) ->

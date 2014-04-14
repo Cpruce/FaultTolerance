@@ -500,6 +500,13 @@ backup_neighbors(M, NodeName, Id, [IdN | Neighbors], Storage, Backups) ->
 
 end.
 
+%% primary storage service function; handles
+%% general communication and functionality.
+storage_serve(M, NodeName, Id, Neighbors, Storage, Backups)->
+    storage_serve_once(M, NodeName, Id, Neighbors, Storage, Backups),
+    storage_serve_once(M, NodeName, Id, Neighbors, Storage, Backups).
+
+
 storage_serve_once(M, NodeName, Id, Neighbors, Storage, Backups) ->
   GlobalName = getStorageProcessName(Id),
   TwoToTheM = round(math:pow(2, M)),
