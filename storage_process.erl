@@ -464,7 +464,9 @@ backup_neighbors(M, NodeId, Id, [IdN | Neighbors], Storage, Backups) ->
       receive
         {_NewRef, node_list_result_for_the_next_k_processes_inclusive, Result} ->
           Pid ! {Ref, result, Result}
-      end;
+      end,
+      backup_neighbors(M, NodeId, Id, Neighbors, Storage, Backups);
+
 
     {Pid, Ref, node_list_for_the_next_k_processes_inclusive, LookAhead, NumLookAhead} ->
       println("~s:~p > Received node_list_for_the_next_k_processes_inclusive command "
@@ -523,7 +525,8 @@ backup_neighbors(M, NodeId, Id, [IdN | Neighbors], Storage, Backups) ->
       println(""),
       println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
         [GlobalName, Ref, LookAhead, GlobalName, Result]),
-      Pid ! {Ref, node_list_result_for_the_next_k_processes_inclusive, Result};
+      Pid ! {Ref, node_list_result_for_the_next_k_processes_inclusive, Result},
+      backup_neighbors(M, NodeId, Id, Neighbors, Storage, Backups);
     % =========================================================================
     % =============================== RESULT ==================================
     % =========================================================================
@@ -531,7 +534,8 @@ backup_neighbors(M, NodeId, Id, [IdN | Neighbors], Storage, Backups) ->
       println("~s:~p > Received a result message.", [GlobalName, Ref]),
       println("~s:~p > Should have got this command if I were the outside world. "
         ++ "But I'm also cool outputing it too.", [GlobalName, Ref]),
-      println("~s:~p > The result is ~p.", [GlobalName, Ref, Result]);
+      println("~s:~p > The result is ~p.", [GlobalName, Ref, Result]),
+      backup_neighbors(M, NodeId, Id, Neighbors, Storage, Backups);
 
     % =========================================================================
     % ============================== FAILURE ==================================
@@ -540,19 +544,20 @@ backup_neighbors(M, NodeId, Id, [IdN | Neighbors], Storage, Backups) ->
       println("~s:~p > Received a failure message.", [GlobalName, Ref]),
       println("~s:~p > Should have got this command if I were the outside world. "
         ++ "But I'm also cool outputing it too.", [GlobalName, Ref]),
-      println("~s:~p > ============ FAILURE ============.", [GlobalName, Ref]);
+      println("~s:~p > ============ FAILURE ============.", [GlobalName, Ref]),
+      backup_neighbors(M, NodeId, Id, Neighbors, Storage, Backups);
 
    {Pid, check, Name} -> 
-        %println("Neighbor ~p went missing", [Name]),
-        %println("Storage is ~p", [Storage]),
-        %ToReg = ets:lookup(Storage, Name),
-        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors, ToReg, []]),
+        println("Neighbor ~p went missing", [Name]),
+        println("Storage is ~p", [Storage]),
+        ToReg = ets:lookup(Storage, Name),
+        Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors, ToReg, []]),
         storage_serve(M, NodeId, Id, Neighbors, Storage, Backups); 
     {Pid, missing, Name} -> 
-        %println("Neighbor ~p went missing", [Name]),
-        %println("Storage is ~p", [Storage]),
-        %ToReg = ets:lookup(Storage, Name),
-        %Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
+        println("Neighbor ~p went missing", [Name]),
+        println("Storage is ~p", [Storage]),
+        ToReg = ets:lookup(Storage, Name),
+        Pid = spawn(storage_process, x_store, [M, NodeName, Id, Neighbors,
          %       ToReg, []]),
         storage_serve(M, NodeId, Id, Neighbors, Storage, Backups);     
     
@@ -1042,11 +1047,11 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage, Backups) ->
     % =========================================================================
     {Pid, Ref, leave} -> ok    
     
-    after 
-      Rnd ->
-	    NewBackups = backup_neighbors(M, NodeId,Id, Neighbors, Storage,
-            Backups),
-        storage_serve(M, NodeId, Id, Neighbors, Storage, NewBackups)
+    %after 
+     % Rnd ->
+	  %  NewBackups = backup_neighbors(M, NodeId,Id, Neighbors, Storage,
+       %     Backups),
+        %storage_serve(M, NodeId, Id, Neighbors, Storage, NewBackups)
 
 end.
 
