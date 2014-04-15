@@ -194,52 +194,45 @@ global_processes_update(TwoToTheM, Neighbor, NodeName) ->
        NeighborsNames = global:registered_names(),
        print("Globally registered names are ~p~n", [NeighborsNames]),
        NodeList = lists:sort(get_node_list(NeighborsNames, NodeName)),
-       %println("NodeList is ~p~n", [NodeList]),
-       %NodeIdList = lists:map(
-       %                     fun(Name)->
-       %                             get_node_num(Name, [])
-       %                     end,
-       %                     NodeList
-       %             ),
-       % println("NodeIdList is ~p~n", [NodeIdList]),
-      AllNodeList = lists:seq(0, TwoToTheM - 1),
-      AvailableNodeList = AllNodeList -- NodeList,
-      % pick a random element from a list
-      AssignedNodeId = lists:nth(random:uniform(length(AvailableNodeList)), AvailableNodeList),
-      println("~s > Will assign node id to ~p", [node(), AssignedNodeId]), 
-       %{Id, PrevId, NextId} = assign_id(hd(NodeIdList), tl(NodeIdList), {0, 0, 0}, TwoToTheM),
-       %[Id, PrevId, NextId, lists:sort(NodeIdList++[Id])];
-      {RetId, Prev, Next} = get_prev_next(AssignedNodeId, lists:sort(NodeList)),
-        [RetId, Prev, Next, NodeList]; 
-    false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
+       println("NodeList is ~p~n", [NodeList]),
+       NodeIdList = lists:map(
+                        fun(Name) -> 
+                            get_node_id(Name)
+                        end,
+                        NodeList
+                    ),
+                    println("NodeIdList is ~p", [NodeIdList]),
+        FilteredNodeIdList = lists:delete([], NodeIdList),
+        println("FilteredNodeIdList is ~p~n", [FilteredNodeIdList]),
+       {Id, PrevId, NextId} = assign_id(hd(NodeIdList), tl(NodeIdList), {0, 0, 0}, TwoToTheM),
+       [Id, PrevId, NextId, lists:sort(NodeIdList++[Id])];
+     false -> print("Could not connect to neighbor ~p~n", [Neighbor]),
 	     [0, -1, -1, [0]]
    end.
 
-% find Id's before and after
-get_prev_next(Id, [])->{Id, Id, Id};
-get_prev_next(Id, [X])->
-    {Id, X, 0};
-get_prev_next(Id, [X|XS])->
-    case Id > X andalso Id < hd(XS) of
-        true -> 
-            {Id, X, hd(XS)};
-        false ->
-            get_prev_next(Id, XS)
-    end.
-
-%string to int; code from http://www.evanmiller.org/joy-of-erlang.html
-atoi([], Acc) ->
-        Acc;
-atoi([C | Rest], Acc) when C >= $0, C =< $9 ->
-            atoi(Rest, 10 * Acc + (C - $0)).
-
-% get node num
-get_node_num([], Id)->Id;
-get_node_num([Char | Rst], Id) when Char >= $0, Char =< $9 ->
-    get_node_num(Rst, Id++[Char]);
-get_node_num([_Char| Rst], Id) ->
-    get_node_num(Rst, Id).
-
+%% grab node id from end of node name
+get_node_id([])->[];
+get_node_id(["0"|Name])-> 
+    ["0"]++get_node_id(tl(Name));
+get_node_id(["1"|Name])-> 
+    ["1"]++get_node_id(tl(Name));
+get_node_id(["2"|Name])-> 
+    ["2"]++get_node_id(tl(Name));
+get_node_id(["3"|Name])-> 
+    ["3"]++get_node_id(tl(Name));
+get_node_id(["4"|Name])-> 
+    ["4"]++get_node_id(tl(Name));
+get_node_id(["5"|Name])-> 
+    ["5"]++get_node_id(tl(Name));
+get_node_id(["6"|Name])-> 
+    ["6"]++get_node_id(tl(Name));
+get_node_id(["7"|Name])-> 
+    ["7"]++get_node_id(tl(Name));
+get_node_id(["8"|Name])-> 
+    ["8"]++get_node_id(tl(Name));
+get_node_id(["9"|Name])-> 
+    ["9"]++get_node_id(tl(Name));
+get_node_id(_) ->[].
 
 %% gets global list of {Node, Id, Pid}'s
 get_node_list([X|NeighborsNames], NodeName)->
