@@ -3,7 +3,7 @@
 %% ====================================================================
 -export([main/1]).
 
--import(key_value_node_working, [println/1, println/2]).
+-import(key_value_node, [println/1, println/2]).
 
 
 inialize(FullNodeName) ->
@@ -15,13 +15,13 @@ inialize(FullNodeName) ->
       println("Error: Cannot connect to ~p! Please try again", [FullNodeName]),
       halt()
   end,
-  GlobalName = list_to_atom("ExternalController1"),
+  GlobalName = list_to_atom("ExternalController2"),
   global:register_name(GlobalName, self()),
   % sleep for 0.5 seconds -- we need to wait until it successfully registers
   timer:sleep(500).
 
 send_store_request(Key, Value) ->
-  GlobalName = "ExternalControllerStore1",
+  GlobalName = "ExternalControllerStore2",
   Ref = make_ref(),
   RegisteredNames = global:registered_names(),
   % println("~p", [RegisteredNames]),
@@ -43,7 +43,7 @@ send_store_request(Key, Value) ->
 
 
 send_retrieve_request(Key) ->
-  GlobalName = "ExternalControllerRetrieve1",
+  GlobalName = "ExternalControllerRetrieve2",
   Ref = make_ref(),
   RegisteredNames = global:registered_names(),
   StorageName = hd(tl(tl(tl(RegisteredNames)))), % pick one storage process 'randomly'
@@ -52,9 +52,8 @@ send_retrieve_request(Key) ->
     [GlobalName, Ref, Key]),
   global:send(StorageName, {self(), Ref, retrieve, Key}).
 
-
 send_first_key_request() ->
-  GlobalName = "ExternalControllerSendFirstKey1",
+  GlobalName = "ExternalControllerSendFirstKey2",
   Ref = make_ref(),
   RegisteredNames = global:registered_names(),
   StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
@@ -62,9 +61,8 @@ send_first_key_request() ->
   println("~s:~p > Sending a first_key request...", [GlobalName, Ref]),
   global:send(StorageName, {self(), Ref, first_key}).
 
-
 send_last_key_request() ->
-  GlobalName = "ExternalControllerSendLastKey1",
+  GlobalName = "ExternalControllerSendLastKey2",
   Ref = make_ref(),
   RegisteredNames = global:registered_names(),
   StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
@@ -74,17 +72,18 @@ send_last_key_request() ->
 
 
 send_num_keys_request() ->
-  GlobalName = "ExternalControllerSendNumKeys1",
+  GlobalName = "ExternalControllerSendNumKeys2",
   Ref = make_ref(),
   RegisteredNames = global:registered_names(),
   StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
   % println("~s> Registered names: ~p", [GlobalName, RegisteredNames]),
-  println("~s:~p > Sending a num_keys request...", [GlobalName, Ref]),
+  println("~s:~p > Sending a num_keys reques to ~p...", [GlobalName, Ref,
+          StorageName]),
   global:send(StorageName, {self(), Ref, num_keys}).
 
 
 send_node_list_request() ->
-  GlobalName = "ExternalControllerSendNodeList1",
+  GlobalName = "ExternalControllerSendNodeList2",
   Ref = make_ref(),
   RegisteredNames = global:registered_names(),
   StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
@@ -94,7 +93,7 @@ send_node_list_request() ->
 
 
 send_leave_request() ->
-  GlobalName = "ExternalControllerSendLeave1",
+  GlobalName = "ExternalControllerSendLeave2",
   Ref = make_ref(),
   RegisteredNames = global:registered_names(),
   StorageName = hd(RegisteredNames), % pick one storage process 'randomly'
@@ -104,7 +103,7 @@ send_leave_request() ->
 
 
 loop_once() ->
-  GlobalName = "ExternalControllerGeneral1",
+  GlobalName = "ExternalControllerGeneral2",
   receive
     {Ref, stored, OldValue} ->
       case OldValue == no_value of

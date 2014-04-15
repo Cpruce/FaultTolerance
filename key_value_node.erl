@@ -66,6 +66,11 @@ main(Params) ->
       println("fail to start kernel! intended shortnames: " ++ NodeName),
       println("Reason: ~p", TheReason)
   end,
+  % spawn and register a non-storage process, so that the node can be discovered.
+  NonStorageProcessPid = spawn(non_storage_process, run, []),
+  global:register_name("NonStorageProcessAt" ++ NodeName, NonStorageProcessPid),
+  println("~s > Registered a non storage process with name = ~p, PID = ~p",
+    [node(), "NonStorageProcessAt" ++ NodeName, NonStorageProcessPid]),
   % begin storage service 
   node_enter(M, NodeName, Neighbors).
 

@@ -20,7 +20,7 @@
 init_store(M, NodeId, Id, Neighbors)->
   	Storage = ets:new(table, [ordered_set]),
     Backups = ets:new(table, [ordered_set]),
-    Name = list_to_atom("StorageProcess" ++ integer_to_list(Id)),
+    Name = getStorageProcessName(Id),
     global:register_name(Name, self()),
 	println("Neighbors to ~p on node ~p are ~p~n", [Id, NodeId, Neighbors]),
 	storage_serve(M, NodeId, Id, Neighbors, Storage, Backups).%Backups). 
@@ -510,7 +510,8 @@ backup_neighbors(M, NodeId, Id, [IdN | Neighbors], Storage, Backups) ->
                 ++ "to ~p with lookahead (including self) of ~p and the number "
                 ++ "of processes (including self) to lookahead of ~p",
                 [GlobalName, Ref, TargetName, ProcessLookAhead, NumProcessesLookAhead]),
-              global:send(
+            println("RegNames are ~p", [global:registered_names()]),  
+            global:send(
                 TargetName,
                 {self(), make_ref(), node_list_for_the_next_k_processes_inclusive,
                   ProcessLookAhead, NumProcessesLookAhead}
@@ -736,9 +737,9 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage, Backups) ->
           % The summary table is more like a list, but we use an 
           % ordered_set, duplicate_bag ets table for convenience.
           % each element will be a singleton tuple
-          SummaryBackups = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          SummaryTable = ets:new(summary_table, [ordered_set, duplicate_bag]),
           % start with the first key from this process
-          ets:insert(SummaryBackups, {ets:first(Backups)}),
+          ets:insert(SummaryTable, {ets:first(Backups)}),
           NeighborsWithLookAhead = [
               {
                 % a tuple of size 3
@@ -776,7 +777,7 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage, Backups) ->
             NeighborsWithLookAhead
           ),
           % expect the table to eventually have LookAhead elements
-          wait_and_get_the_first_key(GlobalName, self(), Ref, SummaryBackups, NumLookAhead)
+          wait_and_get_the_first_key(GlobalName, self(), Ref, SummaryTable, NumLookAhead)
       end,
       println(""),
       println("~s:~p > The first key for the next ~p processes starting from ~p is ~p",
@@ -814,9 +815,9 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage, Backups) ->
           % The summary table is more like a list, but we use an 
           % ordered_set, duplicate_bag ets table for convenience.
           % each element will be a singleton tuple
-          SummaryBackups = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          SummaryTable = ets:new(summary_table, [ordered_set, duplicate_bag]),
           % start with the last key from this process
-          ets:insert(SummaryBackups, {ets:last(Backups)}),
+          ets:insert(SummaryTable, {ets:last(Backups)}),
           NeighborsWithLookAhead = [
               {
                 % a tuple of size 3
@@ -854,7 +855,7 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage, Backups) ->
             NeighborsWithLookAhead
           ),
           % expect the table to eventually have LookAhead elements
-          wait_and_get_the_last_key(GlobalName, self(), Ref, SummaryBackups, NumLookAhead)
+          wait_and_get_the_last_key(GlobalName, self(), Ref, SummaryTable, NumLookAhead)
       end,
       println(""),
       println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
@@ -886,9 +887,9 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage, Backups) ->
           % The summary table is more like a list, but we use an 
           % ordered_set, duplicate_bag ets table for convenience.
           % each element will be a singleton tuple
-          SummaryBackups = ets:new(summary_table, [ordered_set, duplicate_bag]),
+          SummaryTable = ets:new(summary_table, [ordered_set, duplicate_bag]),
           % start with the last key from this process
-          ets:insert(SummaryBackups, {length(ets:match(Backups, '$1'))}),
+          ets:insert(SummaryTable, {length(ets:match(Backups, '$1'))}),
           NeighborsWithLookAhead = [
               {
                 % a tuple of size 3
@@ -917,7 +918,8 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage, Backups) ->
                 ++ "to ~p with lookahead (including self) of ~p and the number "
                 ++ "of processes (including self) to lookahead of ~p",
                 [GlobalName, Ref, TargetName, ProcessLookAhead, NumProcessesLookAhead]),
-              global:send(
+            println("RegNames are ~p", [global:registered_names()]),
+            global:send(
                 TargetName,
                 {self(), make_ref(), num_keys_for_the_next_k_processes_inclusive,
                   ProcessLookAhead, NumProcessesLookAhead}
@@ -926,7 +928,7 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage, Backups) ->
             NeighborsWithLookAhead
           ),
           % expect the table to eventually have LookAhead elements
-          wait_and_get_num_keys(GlobalName, self(), Ref, SummaryBackups, NumLookAhead)
+          wait_and_get_num_keys(GlobalName, self(), Ref, SummaryTable, NumLookAhead)
       end,
       println(""),
       println("~s:~p > The last key for the next ~p processes starting from ~p is ~p",
@@ -1050,9 +1052,10 @@ storage_serve_once(M, NodeId, Id, Neighbors, Storage, Backups) ->
      % Rnd ->
 	  %  NewBackups = backup_neighbors(M, NodeId,Id, Neighbors, Storage,
        %     Backups),
-        %storage_serve(M, NodeId, Id, Neighbors, Storage, NewBackups)
+    %storage_serve(M, NodeId, Id, Neighbors, Storage, NewBackups)
 
 end.
+
 
 wait_and_get_node_list(GlobalName, Pid, Ref, Storage, ExpectedLength) ->
   println(""),
